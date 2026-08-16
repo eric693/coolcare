@@ -144,7 +144,13 @@ App.page('reports', {
       ['保養合約', '合約期間、週期與到期日', 'contracts', 'none'],
       ['冷媒紀錄', '充填回收明細，環保申報底稿', 'refrigerant', 'range'],
       ['技師抽成', '指定期別的抽成明細', 'commissions', 'month'],
-      ['營運月報', '整年度逐月營收、成本、毛利與現金', 'monthly-summary', 'year']
+      ['營運月報', '整年度逐月營收、成本、毛利與現金', 'monthly-summary', 'year'],
+      ['工程專案彙總', '各承攬案的合約、計價、成本與毛利', 'projects', 'none'],
+      ['估驗計價明細', '各期估驗金額、保留款與請款狀況', 'project-billings', 'range'],
+      ['分包計價與扣繳', '付給工班的金額與代扣稅費，扣繳憑單底稿', 'subcontract-billings', 'range'],
+      ['出工日報', '每日出工人員、工數與工資成本', 'labor-logs', 'range'],
+      ['報驗申報清冊', '台電、自來水處等報驗案件辦理狀況', 'filings', 'none'],
+      ['線上估價詢問', '官網詢價來源、成案率與客服紀錄', 'enquiries', 'range']
     ];
 
     const params = kind => kind === 'range' ? `from=${first}&to=${today}`

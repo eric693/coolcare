@@ -389,3 +389,35 @@ td.num, th.num { text-align: right; }
 }
 .alert-row:hover { background: var(--primary-light); }
 .alert-row .ar-date { color: var(--muted); font-size: 12.5px; margin-left: auto; white-space: nowrap; }
+
+/* ---- 水電工程模組 ---- */
+
+/* 進度條：工程計價進度與施工進度共用 */
+.progress-bar {
+  display: block; width: 100%; max-width: 120px; height: 6px;
+  background: var(--border, #e2e8ee); border-radius: 3px; overflow: hidden; margin: 0 0 3px auto;
+}
+.progress-bar span { display: block; height: 100%; background: var(--primary); border-radius: 3px; }
+
+/* ---- 官網詢價卡片 ---- */
+
+.enq-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;
+}
+.enq-card { margin: 0; }
+.enq-new { border-left: 4px solid var(--danger); }
+.enq-photo {
+  margin-top: 8px; max-height: 160px; border-radius: 8px; object-fit: cover; width: 100%;
+}
+
+/* ---- 官網內容管理 ---- */
+
+.web-thumb { margin-top: 8px; max-height: 120px; border-radius: 8px; }
+.web-gallery { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.wg-item { position: relative; width: 96px; height: 96px; }
+.wg-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+.wg-del {
+  position: absolute; top: -6px; right: -6px; width: 22px; height: 22px;
+  border-radius: 50%; border: 0; background: var(--danger); color: #fff;
+  font-size: 15px; line-height: 1; cursor: pointer;
+}

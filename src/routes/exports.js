@@ -331,4 +331,141 @@ router.get('/export/monthly-summary', requireStaff('reports'), (req, res) => {
     rows);
 });
 
+// ---- 工程專案彙總 ----
+const TRADE_TW = { water: '給水排水', electric: '電氣配線', hvac: '空調冷凍', fire: '消防', weak: '弱電', mixed: '綜合水電' };
+const PROJ_STATUS_TW = {
+  draft: '未開工', ongoing: '施工中', paused: '暫停', completed: '已完工',
+  accepted: '已驗收', settled: '已結案', cancelled: '已取消'
+};
+
+router.get('/export/projects', requireStaff('reports'), (req, res) => {
+  const rows = db.prepare(`
+    SELECT p.*, c.name AS customer_name, u.name AS pm_name,
+      (SELECT COALESCE(SUM(gross_amount),0) FROM project_billings b
+        WHERE b.project_id = p.id AND b.status != 'cancelled' AND b.kind != 'retention') AS billed,
+      (SELECT COALESCE(SUM(retention),0) FROM project_billings b
+        WHERE b.project_id = p.id AND b.status != 'cancelled') AS retention,
+      (SELECT COALESCE(SUM(it.qty * it.cost),0) FROM work_order_items it
+        JOIN work_orders w ON w.id = it.order_id WHERE w.project_id = p.id AND w.status != 'cancelled') AS mat_cost,
+      (SELECT COALESCE(SUM(b.gross_amount),0) FROM subcontract_billings b
+        JOIN subcontracts s ON s.id = b.subcontract_id
+        WHERE s.project_id = p.id AND b.status != 'cancelled') AS sub_cost,
+      (SELECT COALESCE(SUM(amount),0) FROM labor_logs l WHERE l.project_id = p.id) AS labor_cost
+    FROM projects p JOIN customers c ON c.id = p.customer_id
+    LEFT JOIN users u ON u.id = p.pm_id ORDER BY p.id`).all();
+  sendCsv(res, `工程專案彙總_${today()}.csv`,
+    ['案號', '工程名稱', '業主', '工種', '狀態', '合約金額', '追加減帳', '合約總額', '已計價', '未計價',
+      '保留款', '材料成本', '分包成本', '工資成本', '成本合計', '毛利', '毛利率', '進度',
+      '開工日', '契約完工日', '實際完工', '驗收日', '保固到期', '工地主任'],
+    rows.map(r => {
+      const total = r.contract_amount + r.change_amount;
+      const cost = r.mat_cost + r.sub_cost + r.labor_cost;
+      return [r.proj_no, r.name, r.customer_name, TRADE_TW[r.trade] || r.trade,
+        PROJ_STATUS_TW[r.status] || r.status, r.contract_amount, r.change_amount, total,
+        r.billed, total - r.billed, r.retention - r.retention_released,
+        r.mat_cost, r.sub_cost, r.labor_cost, cost, total - cost,
+        total ? ((total - cost) / total * 100).toFixed(1) + '%' : '', r.progress + '%',
+        r.start_date, r.due_date, r.finish_date, r.accept_date, r.warranty_end, r.pm_name || ''];
+    }));
+});
+
+// ---- 估驗計價明細 ----
+router.get('/export/project-billings', requireStaff('reports'), (req, res) => {
+  const from = req.query.from || thisMonth() + '-01';
+  const to = req.query.to || today();
+  const rows = db.prepare(`
+    SELECT b.*, p.proj_no, p.name AS project_name, c.name AS customer_name, i.inv_no, i.paid AS invoice_paid
+    FROM project_billings b JOIN projects p ON p.id = b.project_id
+    JOIN customers c ON c.id = p.customer_id LEFT JOIN invoices i ON i.id = b.invoice_id
+    WHERE b.bill_date >= ? AND b.bill_date <= ? ORDER BY b.bill_date, b.id`).all(from, to);
+  const KIND = { deposit: '訂金', progress: '估驗計價', final: '尾款', retention: '保留款退還' };
+  sendCsv(res, `估驗計價明細_${from}_${to}.csv`,
+    ['估驗日', '案號', '工程名稱', '業主', '期別', '類別', '累計完成', '估驗金額', '保留款',
+      '其他扣款', '扣款說明', '本期請款', '請款單號', '已收金額', '狀態'],
+    rows.map(r => [r.bill_date, r.proj_no, r.project_name, r.customer_name, `第 ${r.seq} 期`,
+      KIND[r.kind] || r.kind, r.progress_pct + '%', r.gross_amount, r.retention, r.deduct,
+      r.deduct_note, r.net_amount, r.inv_no || '', r.invoice_paid || 0,
+      ({ draft: '草稿', confirmed: '已確認', billed: '已請款', cancelled: '已取消' })[r.status] || r.status]));
+});
+
+// ---- 分包計價與扣繳（會計師申報扣繳憑單的底稿） ----
+router.get('/export/subcontract-billings', requireStaff('reports'), (req, res) => {
+  const from = req.query.from || thisMonth() + '-01';
+  const to = req.query.to || today();
+  const rows = db.prepare(`
+    SELECT b.*, sc.sc_no, sc.title, sb.name AS sub_name, sb.tax_id, sb.is_individual,
+      p.proj_no, p.name AS project_name
+    FROM subcontract_billings b JOIN subcontracts sc ON sc.id = b.subcontract_id
+    JOIN subcontractors sb ON sb.id = sc.subcontractor_id
+    LEFT JOIN projects p ON p.id = sc.project_id
+    WHERE b.bill_date >= ? AND b.bill_date <= ? ORDER BY b.bill_date, b.id`).all(from, to);
+  sendCsv(res, `分包計價與扣繳_${from}_${to}.csv`,
+    ['計價日', '發包單號', '工班', '統編／身分證', '身分別', '工程', '工項', '期別', '完成度',
+      '計價金額', '材料扣回', '罰款', '保留款', '扣繳稅額', '二代健保', '實付金額', '已付', '付款日', '發票號碼', '狀態'],
+    rows.map(r => [r.bill_date, r.sc_no, r.sub_name, r.tax_id, r.is_individual ? '個人' : '公司',
+      r.project_name || '', r.title || '', `第 ${r.seq} 期`, r.progress_pct + '%',
+      r.gross_amount, r.material_deduct, r.penalty, r.retention, r.wht_tax, r.nhi_fee,
+      r.net_pay, r.paid, r.pay_date, r.invoice_no,
+      ({ draft: '草稿', confirmed: '待付款', paid: '已付清', cancelled: '已取消' })[r.status] || r.status]));
+});
+
+// ---- 出工日報 ----
+router.get('/export/labor-logs', requireStaff('reports'), (req, res) => {
+  const from = req.query.from || thisMonth() + '-01';
+  const to = req.query.to || today();
+  const rows = db.prepare(`
+    SELECT l.*, u.name AS user_name, sb.name AS sub_name, p.proj_no, p.name AS project_name, w.order_no
+    FROM labor_logs l LEFT JOIN users u ON u.id = l.user_id
+    LEFT JOIN subcontractors sb ON sb.id = l.subcontractor_id
+    LEFT JOIN projects p ON p.id = l.project_id LEFT JOIN work_orders w ON w.id = l.order_id
+    WHERE l.log_date >= ? AND l.log_date <= ? ORDER BY l.log_date, l.id`).all(from, to);
+  sendCsv(res, `出工日報_${from}_${to}.csv`,
+    ['日期', '人員', '來源', '工別', '工程', '工單', '工數', '工時', '單價',
+      '加班時數', '加班時薪', '工資金額', '天氣', '施工內容'],
+    rows.map(r => [r.log_date, r.user_name || r.sub_name || r.worker_name,
+      r.user_id ? '自家' : r.subcontractor_id ? '外包' : '臨時', r.worker_type,
+      r.project_name || '', r.order_no || '', r.days, r.hours, r.rate,
+      r.overtime_hours, r.overtime_rate, r.amount, r.weather, r.work_desc]));
+});
+
+// ---- 報驗申報清冊 ----
+router.get('/export/filings', requireStaff('reports'), (req, res) => {
+  const rows = db.prepare(`
+    SELECT f.*, p.proj_no, p.name AS project_name, c.name AS customer_name, u.name AS owner_name
+    FROM filings f LEFT JOIN projects p ON p.id = f.project_id
+    LEFT JOIN customers c ON c.id = f.customer_id LEFT JOIN users u ON u.id = f.owner_id
+    ORDER BY f.apply_date DESC, f.id DESC`).all();
+  const RESULT = {
+    pending: '待送件', applied: '已送件', inspecting: '審查中',
+    passed: '合格', failed: '不合格', fixed: '已改善', cancelled: '已撤案'
+  };
+  sendCsv(res, `報驗申報清冊_${today()}.csv`,
+    ['類別', '受理機關', '案號', '工程', '客戶', '送件日', '會驗日', '結果', '不合格原因',
+      '複驗日', '合格日', '下次應申報', '規費', '承辦人'],
+    rows.map(r => [r.kind, r.authority, r.apply_no, r.project_name || '', r.customer_name || '',
+      r.apply_date, r.inspect_date, RESULT[r.result] || r.result, r.fail_reason,
+      r.recheck_date, r.pass_date, r.next_due_date, r.fee, r.owner_name || '']));
+});
+
+// ---- 線上估價詢問 ----
+router.get('/export/enquiries', requireStaff('reports'), (req, res) => {
+  const from = req.query.from || thisMonth() + '-01';
+  const to = req.query.to || today();
+  const rows = db.prepare(`
+    SELECT e.*, u.name AS handler_name, w.order_no FROM enquiries e
+    LEFT JOIN users u ON u.id = e.handled_by LEFT JOIN work_orders w ON w.id = e.order_id
+    WHERE substr(e.created_at,1,10) >= ? AND substr(e.created_at,1,10) <= ?
+    ORDER BY e.id DESC`).all(from, to);
+  const ST = {
+    new: '新進', contacted: '已聯絡', quoted: '已報價',
+    converted: '已成案', closed: '已結案', spam: '無效詢問'
+  };
+  sendCsv(res, `線上估價詢問_${from}_${to}.csv`,
+    ['詢價編號', '收到時間', '姓名', '電話', 'Email', 'LINE', '需求類別', '服務項目', '地區',
+      '場所', '預算', '希望到場', '需求描述', '狀態', '轉出工單', '承辦', '客服紀錄'],
+    rows.map(r => [r.enq_no, r.created_at, r.name, r.phone, r.email, r.line_id,
+      TRADE_TW[r.trade] || r.trade, r.service, r.area, r.building_type, r.budget, r.expect_date,
+      r.content, ST[r.status] || r.status, r.order_no || '', r.handler_name || '', r.reply_note]));
+});
+
 module.exports = router;

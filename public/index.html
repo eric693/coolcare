@@ -4,18 +4,139 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1268a8">
-<title>CoolCare 冷凍空調工程管理系統</title>
-<link rel="stylesheet" href="/css/style.css">
+<title>水電空調工程行｜配管配線・衛浴設備・冷氣安裝維修</title>
+<meta name="description" content="在地水電空調工程行，承接給水排水配管、室內配線、衛浴設備更新、冷氣安裝與保養。合格證照施工、免費估價、施工保固。">
+<link rel="stylesheet" href="/css/site.css">
 </head>
 <body>
-<div id="app"><div class="empty">載入中...</div></div>
-<div id="toast"></div>
 
-<script src="/js/api.js"></script>
-<script src="/js/ui.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/pages-orders.js"></script>
-<script src="/js/pages-customers.js"></script>
-<script>App.boot();</script>
+<header class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="#top"><span id="logo-name">載入中…</span><small id="logo-sub"></small></a>
+    <button class="nav-toggle" id="nav-toggle" aria-label="選單">☰</button>
+    <nav class="nav-links" id="nav-links">
+      <a href="#about">關於我們</a>
+      <a href="#services">服務項目</a>
+      <a href="#process">服務流程</a>
+      <a href="#showcases">工程實績</a>
+      <a href="#products">商品資訊</a>
+      <a href="#news">最新消息</a>
+      <a href="#faq">常見問題</a>
+      <a class="nav-cta" href="#quote">線上估價</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-inner">
+      <h1 id="hero-title"></h1>
+      <p class="hero-sub" id="hero-sub"></p>
+      <p class="hero-note" id="hero-note"></p>
+      <div class="hero-actions" id="hero-actions"></div>
+      <ul class="hero-badges" id="hero-badges"></ul>
+    </div>
+  </section>
+
+  <section class="sec" id="about">
+    <div class="wrap">
+      <h2 id="about-title">關於我們</h2>
+      <div class="about-body" id="about-body"></div>
+      <div class="info-grid" id="info-grid"></div>
+    </div>
+  </section>
+
+  <section class="sec alt" id="services">
+    <div class="wrap">
+      <h2>服務項目</h2>
+      <p class="sec-sub">水電空調一站式服務，從緊急搶修到整戶工程都承接</p>
+      <div class="card-grid" id="services-list"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="process">
+    <div class="wrap">
+      <h2>服務流程</h2>
+      <p class="sec-sub">流程透明、事先報價，沒有臨時追加</p>
+      <ol class="steps" id="steps-list"></ol>
+    </div>
+  </section>
+
+  <section class="sec alt" id="showcases">
+    <div class="wrap">
+      <h2>工程實績</h2>
+      <p class="sec-sub">實際完工案例，點擊看施工說明與相片</p>
+      <div class="show-grid" id="showcases-list"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="products">
+    <div class="wrap">
+      <h2>商品資訊</h2>
+      <p class="sec-sub">常用品牌與器材，安裝施工一併承接</p>
+      <div class="brands" id="brands"></div>
+      <div class="prod-grid" id="products-list"></div>
+    </div>
+  </section>
+
+  <section class="sec alt" id="news">
+    <div class="wrap">
+      <h2>最新消息</h2>
+      <div class="news-list" id="news-list"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="faq">
+    <div class="wrap">
+      <h2>常見問題</h2>
+      <div class="faq-list" id="faq-list"></div>
+    </div>
+  </section>
+
+  <section class="sec quote-sec" id="quote">
+    <div class="wrap">
+      <h2>線上估價</h2>
+      <p class="sec-sub" id="quote-note"></p>
+      <form class="quote-form" id="quote-form">
+        <div class="qf-grid">
+          <label>稱呼 <span class="req">*</span><input name="name" required maxlength="40" placeholder="王先生"></label>
+          <label>聯絡電話 <span class="req">*</span><input name="phone" required maxlength="20" placeholder="0912345678"></label>
+          <label>Email<input name="email" type="email" maxlength="80"></label>
+          <label>LINE ID<input name="line_id" maxlength="40"></label>
+          <label>需求類別<select name="trade" id="qf-trade"></select></label>
+          <label>服務項目<input name="service" list="qf-services" maxlength="40" placeholder="例：漏水抓漏">
+            <datalist id="qf-services"></datalist></label>
+          <label>場所類型<select name="building_type" id="qf-building"></select></label>
+          <label>施工地區<input name="area" maxlength="40" placeholder="例：台北市大安區"></label>
+          <label>希望到場日<input name="expect_date" type="date"></label>
+          <label>方便聯絡時段<input name="contact_time" maxlength="40" placeholder="例：平日晚上 7 點後"></label>
+          <label class="full">詳細地址<input name="address" maxlength="120" placeholder="方便估算車程與材料，僅供內部使用"></label>
+          <label class="full">需求描述<textarea name="content" rows="5" maxlength="2000"
+            placeholder="請描述狀況，例如：廚房水管接縫處滴水約一週，樓下天花板已有水漬。"></textarea></label>
+          <label class="full">現場照片（可省略，附照片估價更準）<input name="photo" type="file" accept="image/*"></label>
+          <label class="hp">請勿填寫<input name="website" tabindex="-1" autocomplete="off"></label>
+        </div>
+        <button class="btn-primary" type="submit" id="qf-submit">送出估價需求</button>
+        <div class="qf-msg" id="qf-msg"></div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner" id="footer-info"></div>
+  <div class="wrap footer-bottom">
+    <span id="footer-copy"></span>
+    <span class="footer-links">
+      <a href="/portal.html">客戶專區</a>
+      <a href="/admin.html">員工登入</a>
+    </span>
+  </div>
+</footer>
+
+<div class="float-bar" id="float-bar"></div>
+<div class="lightbox" id="lightbox"><button class="lb-close">×</button><div class="lb-body"></div></div>
+
+<script src="/js/site.js"></script>
 </body>
 </html>

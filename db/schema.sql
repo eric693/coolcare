@@ -593,3 +593,406 @@ CREATE TABLE IF NOT EXISTS doc_counters (
   seq INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (prefix, period)
 );
+
+-- ============================================================
+-- 水電工程模組（台灣水電行實務）
+-- 依據：營造業/水電承裝業慣例（工程合約、期中估驗計價、保留款、追加減帳、
+-- 分包工班發包與計價扣款）、所得稅法第 88 條勞務報酬扣繳、二代健保補充保費，
+-- 以及台電竣工報驗、自來水事業處配管報驗、消防查驗等報驗申報作業。
+-- ============================================================
+
+-- ---------- 工程專案（新建／裝修水電工程，以「案」為單位管理） ----------
+
+CREATE TABLE IF NOT EXISTS projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  proj_no TEXT NOT NULL UNIQUE,                  -- PJ-YYYYMM-0001
+  name TEXT NOT NULL,                            -- 工程名稱：例「中山路 12 號新建住宅水電工程」
+  customer_id INTEGER NOT NULL REFERENCES customers(id),
+  site_id INTEGER REFERENCES sites(id) ON DELETE SET NULL,
+  quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,   -- 由哪張報價成交
+  trade TEXT NOT NULL DEFAULT 'mixed'
+    CHECK (trade IN ('water','electric','hvac','fire','weak','mixed')),  -- 給水排水/電氣/空調/消防/弱電/綜合
+  kind TEXT NOT NULL DEFAULT 'new'
+    CHECK (kind IN ('new','renovate','repair','addition','maintain','other')), -- 新建/裝修/修繕/增設/維護
+  address TEXT NOT NULL DEFAULT '',
+  contact TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  contract_no TEXT NOT NULL DEFAULT '',          -- 甲乙方合約編號
+  contract_date TEXT NOT NULL DEFAULT '',
+  contract_amount INTEGER NOT NULL DEFAULT 0,    -- 原始承攬金額（未稅）
+  change_amount INTEGER NOT NULL DEFAULT 0,      -- 追加減帳累計（已核准，未稅）
+  tax_mode TEXT NOT NULL DEFAULT 'exclusive' CHECK (tax_mode IN ('exclusive','inclusive','free')),
+  budget_cost INTEGER NOT NULL DEFAULT 0,        -- 預算成本（工料＋分包），用於毛利控管
+  retention_rate REAL NOT NULL DEFAULT 0.05,     -- 保留款比例（業主每期扣留，驗收後退還）
+  retention_released INTEGER NOT NULL DEFAULT 0, -- 已退還的保留款
+  guarantee_amount INTEGER NOT NULL DEFAULT 0,   -- 履約／保固保證金
+  guarantee_type TEXT NOT NULL DEFAULT '',       -- 現金／本票／銀行保證
+  guarantee_return_date TEXT NOT NULL DEFAULT '',
+  pm_id INTEGER REFERENCES users(id) ON DELETE SET NULL,       -- 工地主任／專案負責人
+  start_date TEXT NOT NULL DEFAULT '',
+  due_date TEXT NOT NULL DEFAULT '',             -- 契約完工日
+  finish_date TEXT NOT NULL DEFAULT '',          -- 實際完工日
+  accept_date TEXT NOT NULL DEFAULT '',          -- 驗收日
+  warranty_months INTEGER NOT NULL DEFAULT 12,
+  warranty_end TEXT NOT NULL DEFAULT '',
+  progress INTEGER NOT NULL DEFAULT 0,           -- 施工進度 %
+  status TEXT NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','ongoing','paused','completed','accepted','settled','cancelled')),
+  scope TEXT NOT NULL DEFAULT '',                -- 承攬範圍
+  note TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_proj_customer ON projects(customer_id);
+CREATE INDEX IF NOT EXISTS idx_proj_status ON projects(status);
+
+-- 追加減帳（工程變更單）：業主追加項目或減項，核准後併入合約金額
+CREATE TABLE IF NOT EXISTS project_changes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  change_no TEXT NOT NULL DEFAULT '',            -- 變更序號 CO-01
+  change_date TEXT NOT NULL,
+  title TEXT NOT NULL,
+  amount INTEGER NOT NULL DEFAULT 0,             -- 追加為正、減帳為負（未稅）
+  reason TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','approved','rejected')),
+  approved_by TEXT NOT NULL DEFAULT '',          -- 業主簽認人
+  approved_date TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_pchg_project ON project_changes(project_id);
+
+-- 估驗計價（期中請款）：每期依完成比例計價，扣保留款後開立請款單
+CREATE TABLE IF NOT EXISTS project_billings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL DEFAULT 1,                -- 第幾期
+  kind TEXT NOT NULL DEFAULT 'progress'
+    CHECK (kind IN ('deposit','progress','final','retention')),  -- 訂金/估驗/尾款/保留款退還
+  bill_date TEXT NOT NULL,
+  progress_pct INTEGER NOT NULL DEFAULT 0,       -- 本期累計完成 %
+  gross_amount INTEGER NOT NULL DEFAULT 0,       -- 本期估驗金額（未稅）
+  retention INTEGER NOT NULL DEFAULT 0,          -- 本期扣留保留款
+  deduct INTEGER NOT NULL DEFAULT 0,             -- 其他扣款（代購材料、逾期罰款）
+  deduct_note TEXT NOT NULL DEFAULT '',
+  net_amount INTEGER NOT NULL DEFAULT 0,         -- 本期實際請款（未稅）＝ gross - retention - deduct
+  invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','confirmed','billed','cancelled')),
+  note TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_pbill_project ON project_billings(project_id);
+
+-- ---------- 分包工班（協力廠商） ----------
+
+CREATE TABLE IF NOT EXISTS subcontractors (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL,                            -- 工班／協力廠商名稱
+  trade TEXT NOT NULL DEFAULT 'mixed',           -- 專長工種：配管/配線/衛浴/泥作/開挖/鑽孔/吊車
+  is_individual INTEGER NOT NULL DEFAULT 1,      -- 個人工班（給付需辦理扣繳）／公司行號（取具發票）
+  tax_id TEXT NOT NULL DEFAULT '',               -- 統編或身分證字號（扣繳憑單用）
+  contact TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '',
+  bank_account TEXT NOT NULL DEFAULT '',
+  license TEXT NOT NULL DEFAULT '',              -- 證照：室內配線技術士／自來水管配管技術士
+  license_no TEXT NOT NULL DEFAULT '',
+  license_expiry TEXT NOT NULL DEFAULT '',
+  labor_insurance INTEGER NOT NULL DEFAULT 0,    -- 是否已投保勞保／意外險（工地要求）
+  insurance_end TEXT NOT NULL DEFAULT '',
+  payment_terms TEXT NOT NULL DEFAULT '月結30天',
+  day_rate INTEGER NOT NULL DEFAULT 0,           -- 點工日薪參考價
+  rating INTEGER NOT NULL DEFAULT 0,             -- 配合評等 1~5
+  active INTEGER NOT NULL DEFAULT 1,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- 發包單：把工程的一部分包給工班
+CREATE TABLE IF NOT EXISTS subcontracts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sc_no TEXT NOT NULL UNIQUE,                    -- SC-YYYYMM-0001
+  subcontractor_id INTEGER NOT NULL REFERENCES subcontractors(id),
+  project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+  order_id INTEGER REFERENCES work_orders(id) ON DELETE SET NULL,   -- 也可掛在單張工單下
+  title TEXT NOT NULL DEFAULT '',
+  trade TEXT NOT NULL DEFAULT '',
+  pay_kind TEXT NOT NULL DEFAULT 'lump'
+    CHECK (pay_kind IN ('lump','unit','daily')), -- 總價包/單價計量/點工
+  scope TEXT NOT NULL DEFAULT '',
+  amount INTEGER NOT NULL DEFAULT 0,             -- 發包金額（未稅）
+  tax_mode TEXT NOT NULL DEFAULT 'exclusive' CHECK (tax_mode IN ('exclusive','inclusive','free')),
+  retention_rate REAL NOT NULL DEFAULT 0.05,     -- 對工班扣留的保留款
+  start_date TEXT NOT NULL DEFAULT '',
+  end_date TEXT NOT NULL DEFAULT '',
+  warranty_months INTEGER NOT NULL DEFAULT 12,
+  status TEXT NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','signed','working','done','settled','cancelled')),
+  note TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_sc_project ON subcontracts(project_id);
+
+-- 分包計價（付給工班的每一期）：含扣款、保留款、勞務扣繳與二代健保
+CREATE TABLE IF NOT EXISTS subcontract_billings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subcontract_id INTEGER NOT NULL REFERENCES subcontracts(id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL DEFAULT 1,
+  bill_date TEXT NOT NULL,
+  progress_pct INTEGER NOT NULL DEFAULT 0,
+  gross_amount INTEGER NOT NULL DEFAULT 0,       -- 本期計價（未稅）
+  material_deduct INTEGER NOT NULL DEFAULT 0,    -- 代購材料扣回
+  penalty INTEGER NOT NULL DEFAULT 0,            -- 罰款／缺失扣款
+  retention INTEGER NOT NULL DEFAULT 0,          -- 本期扣留保留款
+  wht_tax INTEGER NOT NULL DEFAULT 0,            -- 所得稅扣繳（個人工班，預設 10%；未達起扣點免扣）
+  nhi_fee INTEGER NOT NULL DEFAULT 0,            -- 二代健保補充保費
+  net_pay INTEGER NOT NULL DEFAULT 0,            -- 實付金額
+  paid INTEGER NOT NULL DEFAULT 0,
+  pay_date TEXT NOT NULL DEFAULT '',
+  method TEXT NOT NULL DEFAULT '匯款',
+  invoice_no TEXT NOT NULL DEFAULT '',           -- 工班開立的發票／收據號碼
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','confirmed','paid','cancelled')),
+  note TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_scb_sub ON subcontract_billings(subcontract_id);
+
+-- ---------- 出工日報／點工計價 ----------
+
+CREATE TABLE IF NOT EXISTS labor_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  log_date TEXT NOT NULL,
+  project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+  order_id INTEGER REFERENCES work_orders(id) ON DELETE SET NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,             -- 自家技師
+  subcontractor_id INTEGER REFERENCES subcontractors(id) ON DELETE SET NULL,  -- 外包點工
+  worker_name TEXT NOT NULL DEFAULT '',          -- 非建檔人員直接填名字
+  worker_type TEXT NOT NULL DEFAULT '技師',       -- 大工/小工/技師/學徒/臨時工
+  days REAL NOT NULL DEFAULT 1,                  -- 工數（0.5 = 半天）
+  hours REAL NOT NULL DEFAULT 0,                 -- 工時（加班或按時計價時填）
+  rate INTEGER NOT NULL DEFAULT 0,               -- 日薪或時薪
+  overtime_hours REAL NOT NULL DEFAULT 0,
+  overtime_rate INTEGER NOT NULL DEFAULT 0,
+  amount INTEGER NOT NULL DEFAULT 0,             -- 該筆工資成本
+  weather TEXT NOT NULL DEFAULT '',              -- 晴/陰/雨（雨天停工佐證）
+  work_desc TEXT NOT NULL DEFAULT '',            -- 當日施工項目
+  is_billed INTEGER NOT NULL DEFAULT 0,          -- 是否已計入客戶計價
+  created_by INTEGER REFERENCES users(id),
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_labor_date ON labor_logs(log_date);
+CREATE INDEX IF NOT EXISTS idx_labor_project ON labor_logs(project_id);
+
+-- ---------- 工項單價分析庫（報價與估驗計價的快速帶入來源） ----------
+
+CREATE TABLE IF NOT EXISTS unit_prices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL DEFAULT '',                 -- 工項編號 E-001 / W-012
+  trade TEXT NOT NULL DEFAULT 'water',           -- water/electric/hvac/fire/weak/common
+  category TEXT NOT NULL DEFAULT '',             -- 分類：給水配管/排水配管/衛生設備/電氣配線/開關插座/照明/配電盤
+  name TEXT NOT NULL,                            -- 工項名稱：例「PVC 給水管 4 分 明管配管」
+  spec TEXT NOT NULL DEFAULT '',                 -- 規格：4分(15A) / 2.0mm² / CD管16mm
+  unit TEXT NOT NULL DEFAULT '式',               -- 米/處/口/組/式/樘
+  labor_price INTEGER NOT NULL DEFAULT 0,        -- 工資單價
+  material_price INTEGER NOT NULL DEFAULT 0,     -- 材料單價
+  price INTEGER NOT NULL DEFAULT 0,              -- 對客戶報價單價（工＋料＋管銷利潤）
+  cost INTEGER NOT NULL DEFAULT 0,               -- 內部成本單價
+  sub_price INTEGER NOT NULL DEFAULT 0,          -- 發包給工班的單價
+  note TEXT NOT NULL DEFAULT '',
+  sort INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_up_trade ON unit_prices(trade, category);
+
+-- ---------- 報驗／申報作業（主管機關往來） ----------
+
+CREATE TABLE IF NOT EXISTS filings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  filing_no TEXT NOT NULL DEFAULT '',            -- 內部編號
+  project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+  order_id INTEGER REFERENCES work_orders(id) ON DELETE SET NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  kind TEXT NOT NULL DEFAULT '',                 -- 台電竣工報驗/自來水配管報驗/用電設備檢驗維護申報/消防查驗/建管室內裝修/F-gas 冷媒申報
+  authority TEXT NOT NULL DEFAULT '',            -- 受理機關：台灣電力公司○○區處／自來水處第○區
+  apply_no TEXT NOT NULL DEFAULT '',             -- 案號／受理號碼
+  apply_date TEXT NOT NULL DEFAULT '',           -- 送件日
+  inspect_date TEXT NOT NULL DEFAULT '',         -- 會驗／查驗日
+  result TEXT NOT NULL DEFAULT 'pending'
+    CHECK (result IN ('pending','applied','inspecting','passed','failed','fixed','cancelled')),
+  fail_reason TEXT NOT NULL DEFAULT '',          -- 不合格原因（複驗依據）
+  recheck_date TEXT NOT NULL DEFAULT '',         -- 複驗日
+  pass_date TEXT NOT NULL DEFAULT '',
+  next_due_date TEXT NOT NULL DEFAULT '',        -- 下次應申報日（定期檢驗維護申報用）
+  fee INTEGER NOT NULL DEFAULT 0,                -- 規費
+  owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,  -- 承辦人
+  doc_path TEXT NOT NULL DEFAULT '',             -- 掃描件
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_filing_project ON filings(project_id);
+
+-- ---------- 公司證照／承裝業登記 ----------
+
+CREATE TABLE IF NOT EXISTS company_licenses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,                            -- 電器承裝業登記／自來水管承裝商甲級／消防設備師事務所
+  reg_no TEXT NOT NULL DEFAULT '',               -- 登記證號
+  grade TEXT NOT NULL DEFAULT '',                -- 甲/乙/丙級
+  authority TEXT NOT NULL DEFAULT '',            -- 核發機關
+  holder TEXT NOT NULL DEFAULT '',               -- 專任技術員姓名
+  holder_license TEXT NOT NULL DEFAULT '',       -- 該技術員之證照字號
+  issue_date TEXT NOT NULL DEFAULT '',
+  expire_date TEXT NOT NULL DEFAULT '',          -- 到期日（需辦理換證）
+  doc_path TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- ============================================================
+-- 公司官網（對外形象網站）＋線上估價
+-- 內容一律由後台 CMS 維護，官網只讀；線上估價送出後落入 enquiries 待客服處理。
+-- ============================================================
+
+-- 服務項目（官網「服務項目」區塊）
+CREATE TABLE IF NOT EXISTS web_services (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,                            -- 例：家用空調安裝、室內配線、衛浴設備更新
+  trade TEXT NOT NULL DEFAULT 'water',           -- 歸類（水/電/空調/消防/弱電/綜合）
+  summary TEXT NOT NULL DEFAULT '',              -- 一句話說明（卡片用）
+  body TEXT NOT NULL DEFAULT '',                 -- 詳細說明（可多行）
+  icon TEXT NOT NULL DEFAULT '',                 -- emoji 或短代碼
+  photo TEXT NOT NULL DEFAULT '',
+  price_hint TEXT NOT NULL DEFAULT '',           -- 例：「到府檢測 500 元起，施工可折抵」
+  sort INTEGER NOT NULL DEFAULT 0,
+  published INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- 工程實績（官網「工程實績」相簿）
+CREATE TABLE IF NOT EXISTS web_showcases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  trade TEXT NOT NULL DEFAULT 'water',
+  category TEXT NOT NULL DEFAULT '',             -- 住宅/商辦/廠房/店面/公共工程
+  customer_name TEXT NOT NULL DEFAULT '',        -- 對外顯示名稱（可寫「台北市 王先生」）
+  area TEXT NOT NULL DEFAULT '',                 -- 施工地區（不放完整地址）
+  project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,  -- 由內部工程專案轉出
+  finish_date TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL DEFAULT '',                 -- 施工說明／使用材料／工期
+  cover TEXT NOT NULL DEFAULT '',
+  sort INTEGER NOT NULL DEFAULT 0,
+  published INTEGER NOT NULL DEFAULT 1,
+  views INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS web_showcase_photos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  showcase_id INTEGER NOT NULL REFERENCES web_showcases(id) ON DELETE CASCADE,
+  path TEXT NOT NULL,
+  caption TEXT NOT NULL DEFAULT '',
+  sort INTEGER NOT NULL DEFAULT 0
+);
+
+-- 商品資訊（官網「商品資訊」；可連結內部料件，型錄式呈現）
+CREATE TABLE IF NOT EXISTS web_products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+  brand TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL,
+  model TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
+  spec TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',
+  photo TEXT NOT NULL DEFAULT '',
+  price_note TEXT NOT NULL DEFAULT '',           -- 官網不放實價：例「歡迎來電洽詢」
+  sort INTEGER NOT NULL DEFAULT 0,
+  published INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- 最新消息／衛教文章
+CREATE TABLE IF NOT EXISTS web_news (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT '最新消息',      -- 最新消息/優惠活動/施工知識/公告
+  summary TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL DEFAULT '',
+  cover TEXT NOT NULL DEFAULT '',
+  publish_date TEXT NOT NULL DEFAULT '',
+  expire_date TEXT NOT NULL DEFAULT '',
+  pinned INTEGER NOT NULL DEFAULT 0,
+  published INTEGER NOT NULL DEFAULT 1,
+  views INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- 服務流程（官網「服務流程」步驟圖）
+CREATE TABLE IF NOT EXISTS web_steps (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  step_no INTEGER NOT NULL DEFAULT 1,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  icon TEXT NOT NULL DEFAULT '',
+  sort INTEGER NOT NULL DEFAULT 0,
+  published INTEGER NOT NULL DEFAULT 1
+);
+
+-- 常見問題
+CREATE TABLE IF NOT EXISTS web_faqs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL DEFAULT '',
+  sort INTEGER NOT NULL DEFAULT 0,
+  published INTEGER NOT NULL DEFAULT 1
+);
+
+-- 線上估價／聯絡表單（官網送出 → 後台待處理 → 可一鍵轉客戶與工單）
+CREATE TABLE IF NOT EXISTS enquiries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  enq_no TEXT NOT NULL DEFAULT '',               -- EQ-YYYYMM-0001
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT NOT NULL DEFAULT '',
+  line_id TEXT NOT NULL DEFAULT '',
+  trade TEXT NOT NULL DEFAULT '',                -- 需求類別
+  service TEXT NOT NULL DEFAULT '',              -- 服務項目：安裝/維修/保養/管路阻塞/漏水/報價
+  area TEXT NOT NULL DEFAULT '',                 -- 施工地區
+  address TEXT NOT NULL DEFAULT '',
+  building_type TEXT NOT NULL DEFAULT '',        -- 住家/店面/辦公室/廠房
+  budget TEXT NOT NULL DEFAULT '',
+  expect_date TEXT NOT NULL DEFAULT '',          -- 希望到場時間
+  contact_time TEXT NOT NULL DEFAULT '',         -- 方便聯絡時段
+  content TEXT NOT NULL DEFAULT '',              -- 需求描述
+  photo TEXT NOT NULL DEFAULT '',                -- 現場照片（估價更準）
+  source TEXT NOT NULL DEFAULT 'website',        -- website/line/phone/facebook
+  ip TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'new'
+    CHECK (status IN ('new','contacted','quoted','converted','closed','spam')),
+  handled_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  handled_at TEXT NOT NULL DEFAULT '',
+  reply_note TEXT NOT NULL DEFAULT '',           -- 客服回覆紀錄
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  order_id INTEGER REFERENCES work_orders(id) ON DELETE SET NULL,
+  quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_enq_status ON enquiries(status);
+
+-- 官網瀏覽計數（每日一列，供後台看流量與人氣頁）
+CREATE TABLE IF NOT EXISTS web_visits (
+  day TEXT NOT NULL,
+  path TEXT NOT NULL DEFAULT '/',
+  hits INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, path)
+);

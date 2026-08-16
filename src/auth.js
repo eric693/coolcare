@@ -13,6 +13,12 @@ const MODULES = [
   { key: 'equipments', label: '設備履歷' },
   { key: 'contracts', label: '保養合約' },
   { key: 'quotes', label: '報價單' },
+  { key: 'projects', label: '工程專案與估驗計價' },
+  { key: 'subcontract', label: '分包工班與計價付款' },
+  { key: 'labor', label: '出工日報／點工' },
+  { key: 'unitprice', label: '工項單價庫' },
+  { key: 'filings', label: '報驗申報作業' },
+  { key: 'licenses', label: '公司證照登記' },
   { key: 'inventory', label: '庫存與料件' },
   { key: 'purchase', label: '採購進貨' },
   { key: 'sales', label: '銷貨出庫' },
@@ -21,6 +27,8 @@ const MODULES = [
   { key: 'commission', label: '技師抽成' },
   { key: 'refrigerant', label: '冷媒管制紀錄' },
   { key: 'announcements', label: '公告' },
+  { key: 'website', label: '官網內容管理' },
+  { key: 'enquiries', label: '線上估價詢問' },
   { key: 'reports', label: '報表匯出' },
   { key: 'users', label: '帳號權限' },
   { key: 'settings', label: '系統設定' }
@@ -28,7 +36,8 @@ const MODULES = [
 const MODULE_KEYS = MODULES.map(m => m.key);
 
 // 技師預設權限：只給日常出工需要的模組
-const TECH_DEFAULT_MODULES = ['orders', 'customers', 'equipments', 'inventory', 'refrigerant', 'announcements'];
+const TECH_DEFAULT_MODULES = ['orders', 'customers', 'equipments', 'inventory', 'refrigerant',
+  'projects', 'labor', 'unitprice', 'announcements'];
 
 // 登入暴力嘗試防護：同一帳號連續失敗 5 次鎖定 15 分鐘（重啟即重置）
 const loginAttempts = new Map();

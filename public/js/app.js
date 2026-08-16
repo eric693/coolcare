@@ -83,11 +83,13 @@ const App = {
   },
 
   navGroups: [
-    { label: '每日作業', keys: ['dashboard', 'dispatch', 'orders', 'calendar'] },
+    { label: '每日作業', keys: ['dashboard', 'dispatch', 'orders', 'calendar', 'enquiries'] },
+    { label: '工程專案', keys: ['projects', 'subcontracts', 'subcontractors', 'labor', 'unitprices'] },
     { label: '客戶與設備', keys: ['customers', 'equipments', 'contracts', 'quotes'] },
     { label: '進銷存', keys: ['stocks', 'products', 'purchases', 'sales', 'stocktakes', 'suppliers'] },
     { label: '帳務', keys: ['invoices', 'payables', 'commissions'] },
-    { label: '管理', keys: ['refrigerant', 'reports', 'announcements', 'users', 'settings'] }
+    { label: '法規與證照', keys: ['filings', 'licenses', 'refrigerant'] },
+    { label: '管理', keys: ['website', 'reports', 'announcements', 'users', 'settings'] }
   ],
 
   renderLayout() {
@@ -105,7 +107,7 @@ const App = {
       <div class="backdrop" id="backdrop"></div>
       <div class="layout">
         <aside class="sidebar" id="sidebar">
-          <div class="brand">${UI.esc(App.me.company_name)}<small>CoolCare 冷凍空調工程管理</small></div>
+          <div class="brand">${UI.esc(App.me.company_name)}<small>水電空調工程管理系統</small></div>
           <nav class="nav" id="nav">${navHtml}</nav>
           <div class="user-box">
             <div class="name">${UI.esc(App.me.name)}</div>
@@ -196,7 +198,32 @@ App.page('dashboard', {
           <div class="num">${UI.num(s.payable_amount)}</div><div class="label">應付廠商</div></div>
         <div class="stat clickable" onclick="location.hash='stocks'">
           <div class="num">${UI.num(Math.round(s.stock_value))}</div><div class="label">庫存價值</div></div>
+        ${App.can('enquiries') ? `<div class="stat clickable" onclick="location.hash='enquiries'">
+          <div class="num ${s.enquiries_new ? 'danger' : ''}">${s.enquiries_new}</div><div class="label">官網待處理詢價</div></div>` : ''}
+        ${App.can('projects') ? `
+        <div class="stat clickable" onclick="location.hash='projects'">
+          <div class="num">${s.projects_open}</div>
+          <div class="label">進行中工程${s.projects_overdue ? `（逾期 ${s.projects_overdue}）` : ''}</div></div>
+        <div class="stat clickable" onclick="location.hash='projects'">
+          <div class="num">${UI.num(s.project_backlog)}</div><div class="label">工程未計價餘額</div></div>
+        <div class="stat clickable" onclick="location.hash='projects'">
+          <div class="num">${UI.num(s.retention_held)}</div><div class="label">業主保留款</div></div>` : ''}
+        ${App.can('subcontract') ? `<div class="stat clickable" onclick="location.hash='subcontracts'">
+          <div class="num ${s.sub_payable ? 'warn' : ''}">${UI.num(s.sub_payable)}</div><div class="label">待付工班款</div></div>` : ''}
       </div>
+
+      ${d.enquiries.length ? `<div class="card" style="border-left:4px solid var(--danger)">
+        <h3>官網新進詢價（${d.enquiries.length}）</h3>
+        ${UI.table(['時間', '姓名', '電話', '需求', '地區', '內容'], d.enquiries.map(e => `
+          <tr style="cursor:pointer" onclick="location.hash='enquiries'">
+            <td>${UI.esc(e.created_at.slice(5, 16))}</td>
+            <td><strong>${UI.esc(e.name)}</strong></td>
+            <td>${UI.esc(e.phone)}</td>
+            <td>${UI.esc(e.service || '－')}</td>
+            <td>${UI.esc(e.area || '－')}</td>
+            <td class="wrap">${UI.esc((e.content || '').slice(0, 60))}</td>
+          </tr>`), '')}
+      </div>` : ''}
 
       <div class="split">
         <div>
@@ -253,6 +280,18 @@ App.page('dashboard', {
               <div class="ml-sub">安全 ${p.safety_qty}</div></div></li>`).join('')}</ul>`
         : '<div style="color:var(--muted);font-size:13.5px">庫存水位正常</div>'}
           </div>
+          ${d.alerts.projects_overdue.length ? `<div class="card"><h3>工程逾期未完工</h3>
+            ${alertRow(d.alerts.projects_overdue, x => [`${x.customer_name}　${x.name}（${x.progress}%）`, x.due_date], 'projects')}
+          </div>` : ''}
+          ${d.alerts.filings.length ? `<div class="card"><h3>報驗申報待辦</h3>
+            ${alertRow(d.alerts.filings, x => [
+        `${x.kind}${x.project_name ? '　' + x.project_name : ''}（${TW.filing_result[x.result] || x.result}）`,
+        x.next_due_date || x.apply_date], 'filings')}
+          </div>` : ''}
+          ${d.alerts.company_licenses.length ? `<div class="card" style="border-left:4px solid var(--danger)">
+            <h3>公司承裝業登記換證</h3>
+            ${alertRow(d.alerts.company_licenses, x => [`${x.name}${x.grade ? '　' + x.grade : ''}`, x.expire_date], 'licenses')}
+          </div>` : ''}
           ${d.alerts.licenses.length ? `<div class="card"><h3>技師證照到期</h3>
             ${alertRow(d.alerts.licenses, x => [`${x.name}　${x.license}`, x.license_expiry], 'users')}</div>` : ''}
         </div>

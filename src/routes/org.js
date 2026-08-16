@@ -34,7 +34,28 @@ router.get('/meta', requireStaff(), (req, res) => {
     commission_basis: getSetting('commission_basis', 'profit'),
     warehouses: db.prepare('SELECT id, name, kind, keeper_id FROM warehouses WHERE active = 1 ORDER BY kind, id').all(),
     techs: db.prepare("SELECT id, name, tech_no FROM users WHERE active = 1 AND is_tech = 1 ORDER BY name").all(),
-    categories: db.prepare('SELECT id, name FROM product_categories ORDER BY sort, id').all()
+    categories: db.prepare('SELECT id, name FROM product_categories ORDER BY sort, id').all(),
+
+    // ---- 水電工程模組 ----
+    trades: listSetting('trades'),
+    project_kinds: listSetting('project_kinds'),
+    order_sub_types: listSetting('order_sub_types'),
+    worker_types: listSetting('worker_types'),
+    unit_price_categories: listSetting('unit_price_categories'),
+    unit_price_units: listSetting('unit_price_units'),
+    filing_kinds: listSetting('filing_kinds'),
+    filing_authorities: listSetting('filing_authorities'),
+    retention_rate_default: Number(getSetting('retention_rate_default', '0.05')),
+    sub_retention_rate: Number(getSetting('sub_retention_rate', '0.05')),
+    project_warranty_months: Number(getSetting('project_warranty_months', '12')),
+    day_rate_default: Number(getSetting('day_rate_default', '2800')),
+    wht_rate: Number(getSetting('wht_rate', '0.10')),
+    wht_threshold: Number(getSetting('wht_threshold', '20010')),
+    nhi_rate: Number(getSetting('nhi_rate', '0.0211')),
+    nhi_threshold: Number(getSetting('nhi_threshold', '20000')),
+    subcontractors: db.prepare('SELECT id, name, trade, is_individual, day_rate FROM subcontractors WHERE active = 1 ORDER BY name').all(),
+    open_projects: db.prepare(`SELECT id, proj_no, name FROM projects
+      WHERE status IN ('draft','ongoing','paused') ORDER BY id DESC LIMIT 200`).all()
   });
 });
 
@@ -62,6 +83,23 @@ router.get('/dashboard', requireStaff(), (req, res) => {
 
   // 逾期未收（超過到期日）
   stat.overdue_ar = one(`SELECT COUNT(*) n FROM invoices WHERE status IN ('unpaid','partial') AND due_date != '' AND due_date < '${d}'`).n;
+
+  // 工程專案：進行中案量、逾期工程、被業主扣在手上的保留款、待付工班
+  Object.assign(stat, {
+    projects_open: one("SELECT COUNT(*) n FROM projects WHERE status IN ('draft','ongoing','paused')").n,
+    projects_overdue: one(`SELECT COUNT(*) n FROM projects
+      WHERE status IN ('draft','ongoing','paused') AND due_date != '' AND due_date < '${d}'`).n,
+    project_backlog: one(`SELECT COALESCE(SUM(p.contract_amount + p.change_amount),0) - COALESCE((
+        SELECT SUM(b.gross_amount) FROM project_billings b JOIN projects p2 ON p2.id = b.project_id
+        WHERE b.status != 'cancelled' AND b.kind != 'retention' AND p2.status IN ('draft','ongoing','paused')
+      ),0) AS v FROM projects p WHERE p.status IN ('draft','ongoing','paused')`).v,
+    retention_held: one(`SELECT COALESCE((SELECT SUM(retention) FROM project_billings WHERE status != 'cancelled'),0)
+      - COALESCE((SELECT SUM(retention_released) FROM projects),0) AS v`).v,
+    sub_payable: one(`SELECT COALESCE(SUM(net_pay - paid),0) v FROM subcontract_billings
+      WHERE status IN ('confirmed','paid') AND net_pay > paid`).v,
+    enquiries_new: one("SELECT COUNT(*) n FROM enquiries WHERE status = 'new'").n,
+    filings_open: one("SELECT COUNT(*) n FROM filings WHERE result IN ('pending','applied','inspecting','failed')").n
+  });
 
   const lowStock = lowStockList().slice(0, 10);
 
@@ -92,8 +130,29 @@ router.get('/dashboard', requireStaff(), (req, res) => {
       WHERE e.status = 'active' AND e.warranty_end != '' AND e.warranty_end <= ? AND e.warranty_end >= ?
       ORDER BY e.warranty_end`).all(warrantyAlert, d),
     licenses: db.prepare(`SELECT id, name, license, license_expiry FROM users
-      WHERE active = 1 AND license_expiry != '' AND license_expiry <= ? ORDER BY license_expiry`).all(licenseAlert)
+      WHERE active = 1 AND license_expiry != '' AND license_expiry <= ? ORDER BY license_expiry`).all(licenseAlert),
+    // 公司承裝業登記過期就不能承攬，提前提醒換證
+    company_licenses: db.prepare(`SELECT id, name, grade, reg_no, expire_date FROM company_licenses
+      WHERE active = 1 AND expire_date != '' AND expire_date <= ? ORDER BY expire_date`)
+      .all(addDays(d, Number(getSetting('company_license_alert_days', '90')))),
+    // 報驗待辦：待送件、審查中、不合格待複驗，以及定期申報到期
+    filings: db.prepare(`SELECT f.id, f.kind, f.authority, f.apply_no, f.result, f.apply_date, f.next_due_date,
+        p.name AS project_name
+      FROM filings f LEFT JOIN projects p ON p.id = f.project_id
+      WHERE f.result IN ('pending','applied','inspecting','failed')
+         OR (f.next_due_date != '' AND f.next_due_date <= ?)
+      ORDER BY f.result = 'failed' DESC, f.next_due_date != '' DESC, f.apply_date LIMIT 20`)
+      .all(addDays(d, Number(getSetting('filing_alert_days', '30')))),
+    // 工程逾期：已過契約完工日還沒完工，違約金風險
+    projects_overdue: db.prepare(`SELECT p.id, p.proj_no, p.name, p.due_date, p.progress, c.name AS customer_name
+      FROM projects p JOIN customers c ON c.id = p.customer_id
+      WHERE p.status IN ('draft','ongoing','paused') AND p.due_date != '' AND p.due_date < ?
+      ORDER BY p.due_date`).all(d)
   };
+
+  // 官網待處理詢價：這是會流失的生意，放在總覽第一時間看到
+  const enquiries = db.prepare(`SELECT id, enq_no, name, phone, service, area, content, created_at
+    FROM enquiries WHERE status = 'new' ORDER BY id DESC LIMIT 10`).all();
 
   // 本月營運（毛利＝營收－材料成本；工資與車馬視為服務收入不扣料本）
   const monthWO = one(`SELECT COUNT(*) n, COALESCE(SUM(total),0) rev, COALESCE(SUM(parts_cost),0) cost
@@ -112,7 +171,7 @@ router.get('/dashboard', requireStaff(), (req, res) => {
   };
 
   res.json({
-    stat, low_stock: lowStock, today_orders: todayOrders, alerts, security,
+    stat, low_stock: lowStock, today_orders: todayOrders, alerts, security, enquiries,
     month: {
       key: month,
       orders: monthWO.n,

@@ -76,17 +76,21 @@ app.put('/api/me/password', requireStaff(), (req, res) => {
 // ---- 各模組路由 ----
 
 app.use('/api/portal', require('./routes/portal'));
+app.use('/api', require('./routes/site'));      // 官網公開內容需早於需登入的路由
 app.use('/api', require('./routes/org'));
 app.use('/api', require('./routes/customers'));
 app.use('/api', require('./routes/orders'));
 app.use('/api', require('./routes/inventory'));
 app.use('/api', require('./routes/billing'));
+app.use('/api', require('./routes/projects'));
+app.use('/api', require('./routes/trade'));
 app.use('/api', require('./routes/exports'));
 
 // ---- 靜態檔案 ----
 
-// 上傳檔（施工照片等）僅限已登入的員工或客戶存取
+// 上傳檔（施工照片、報驗掃描件）僅限已登入的員工或客戶存取
 app.use('/uploads', requireAnyUser, express.static(path.join(__dirname, '..', 'uploads'), { maxAge: '7d' }));
+// public/web-media 是官網素材，由下面的靜態中介直接公開（訪客要看得到實績照片）
 app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h', index: 'index.html' }));
 
 app.use('/api', (req, res) => res.status(404).json({ error: '找不到此 API' }));
@@ -160,6 +164,7 @@ setInterval(dailyMaintenance, 6 * 3600 * 1000);   // 每 6 小時檢查，一天
 
 const PORT = process.env.PORT || 3330;
 app.listen(PORT, () => {
-  console.log(`CoolCare 冷凍空調工程管理系統 http://localhost:${PORT}`);
-  console.log(`客戶專區 http://localhost:${PORT}/portal.html`);
+  console.log(`公司官網　　http://localhost:${PORT}/`);
+  console.log(`員工管理系統 http://localhost:${PORT}/admin.html`);
+  console.log(`客戶專區　　http://localhost:${PORT}/portal.html`);
 });

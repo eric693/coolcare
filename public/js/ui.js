@@ -251,5 +251,42 @@ const TW = {
   tax_mode: { exclusive: '未稅另加 5%', inclusive: '金額已含稅', free: '免稅' },
   price_level: { retail: '零售價', contract: '合約價', wholesale: '同業價' },
   photo_stage: { before: '施工前', during: '施工中', after: '施工後', fault: '故障點', other: '其他' },
-  stocktake_status: { open: '盤點中', closed: '已結案', cancelled: '已取消' }
+  stocktake_status: { open: '盤點中', closed: '已結案', cancelled: '已取消' },
+
+  // ---- 水電工程 ----
+  trade: { water: '給水排水', electric: '電氣配線', hvac: '空調冷凍', fire: '消防', weak: '弱電', mixed: '綜合水電' },
+  project_kind: { new: '新建工程', renovate: '裝修翻新', repair: '修繕', addition: '增設', maintain: '維護', other: '其他' },
+  project_status: {
+    draft: '未開工', ongoing: '施工中', paused: '暫停', completed: '已完工',
+    accepted: '已驗收', settled: '已結案', cancelled: '已取消'
+  },
+  project_cls: {
+    draft: 'warn', ongoing: 'primary', paused: 'warn', completed: 'ok',
+    accepted: 'ok', settled: '', cancelled: 'danger'
+  },
+  billing_kind: { deposit: '訂金', progress: '估驗計價', final: '尾款', retention: '保留款退還' },
+  pbill_status: { draft: '草稿', confirmed: '已確認', billed: '已請款', cancelled: '已取消' },
+  change_status: { draft: '待簽認', approved: '已核准', rejected: '未核准' },
+  sc_status: { draft: '草稿', signed: '已簽約', working: '施工中', done: '已完工', settled: '已結案', cancelled: '已取消' },
+  scb_status: { draft: '草稿', confirmed: '待付款', paid: '已付清', cancelled: '已取消' },
+  pay_kind: { lump: '總價承包', unit: '單價計量', daily: '點工計酬' },
+  filing_result: {
+    pending: '待送件', applied: '已送件', inspecting: '審查中',
+    passed: '合格', failed: '不合格', fixed: '已改善', cancelled: '已撤案'
+  },
+  filing_cls: {
+    pending: 'warn', applied: 'primary', inspecting: 'primary',
+    passed: 'ok', failed: 'danger', fixed: 'ok', cancelled: ''
+  },
+  up_field: {
+    price: '報價單價', labor_price: '工資單價', material_price: '材料單價',
+    cost: '成本單價', sub_price: '發包單價'
+  },
+
+  // ---- 官網 ----
+  enq_status: {
+    new: '新進', contacted: '已聯絡', quoted: '已報價',
+    converted: '已成案', closed: '已結案', spam: '無效詢問'
+  },
+  enq_cls: { new: 'danger', contacted: 'warn', quoted: 'primary', converted: 'ok', closed: '', spam: '' }
 };
