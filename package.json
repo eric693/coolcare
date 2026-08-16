@@ -1,0 +1,18 @@
+{
+  "name": "coolcare",
+  "version": "1.0.0",
+  "description": "CoolCare 冷凍空調工程管理系統：派工單、設備履歷、保養合約、進銷存、報價請款、技師抽成與客戶專區",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0"
+  }
+}
