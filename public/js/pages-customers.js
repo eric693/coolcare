@@ -378,7 +378,8 @@ const Equip = {
             ${sites.map(s => `<option value="${s.id}"${String(e?.site_id) === String(s.id) ? ' selected' : ''}>${UI.esc(s.name)}</option>`).join('')}
           </select></div>
         ${UI.input('asset_no', '機號', { value: e?.asset_no, placeholder: '留空自動編號' })}
-        ${UI.inputList('category', '機種', App.meta.equipment_categories || [], { value: e?.category, placeholder: '例：箱型機、分離式、冰水主機' })}
+        ${UI.select('trade', '類別', App.mapOpts(TW.trade), { value: e?.trade || 'hvac' })}
+        ${UI.inputList('category', '機種／標的物', App.meta.equipment_categories || [], { value: e?.category, placeholder: '例：分離式冷氣、加壓馬達、配電盤' })}
         ${UI.input('brand', '品牌', { value: e?.brand })}
         ${UI.input('model', '型號', { value: e?.model })}
         ${UI.input('serial_no', '機身號碼', { value: e?.serial_no })}
@@ -388,6 +389,11 @@ const Equip = {
         ${UI.inputList('refrigerant', '冷媒種類', App.meta.refrigerants || [], { value: e?.refrigerant })}
         ${UI.input('refrigerant_kg', '冷媒填充量（kg）', { type: 'number', step: '0.01', value: e?.refrigerant_kg ?? '' })}
         ${UI.inputList('power_spec', '電源規格', App.meta.power_specs || [], { value: e?.power_spec })}
+        ${UI.inputList('pipe_material', '管材', ['PVC', 'PPR', '不鏽鋼壓接', '銅管', '鍍鋅鐵管', '不鏽鋼浪管'], { value: e?.pipe_material })}
+        ${UI.inputList('pipe_size', '管徑', ['4分(15A)', '6分(20A)', '1吋(25A)', '1.2吋(32A)', '1.5吋(40A)', '2吋(50A)', '3吋(80A)', '4吋(100A)'], { value: e?.pipe_size })}
+        ${UI.inputList('breaker_spec', '開關規格', ['1P 20A', '2P 20A', '2P 30A', '2P 50A', '3P 50A', '3P 75A', '3P 100A'], { value: e?.breaker_spec })}
+        ${UI.inputList('wire_spec', '線徑', ['1.6mm²', '2.0mm²', '3.5mm²', '5.5mm²', '8mm²', '14mm²', '22mm²'], { value: e?.wire_spec })}
+        ${UI.input('meter_no', '電號／水號', { value: e?.meter_no, placeholder: '報修或申請時要用' })}
         ${UI.input('install_date', '安裝日', { type: 'date', value: e?.install_date })}
         ${UI.input('warranty_end', '整機保固到期', { type: 'date', value: e?.warranty_end, placeholder: '留空依安裝日自動推算' })}
         ${UI.input('compressor_warranty_end', '壓縮機保固到期', { type: 'date', value: e?.compressor_warranty_end })}
@@ -423,6 +429,11 @@ const Equip = {
               <div><div class="dg-label">能力／噸數</div>${e.capacity_kw ? e.capacity_kw + ' kW' : '－'}${e.tonnage ? `／${e.tonnage} RT` : ''}</div>
               <div><div class="dg-label">冷媒</div>${UI.esc(e.refrigerant || '－')}${e.refrigerant_kg ? `　${e.refrigerant_kg} kg` : ''}</div>
               <div><div class="dg-label">電源</div>${UI.esc(e.power_spec || '－')}</div>
+              ${e.pipe_material || e.pipe_size ? `<div><div class="dg-label">管材／管徑</div>
+                ${UI.esc(e.pipe_material || '－')}　${UI.esc(e.pipe_size || '')}</div>` : ''}
+              ${e.breaker_spec || e.wire_spec ? `<div><div class="dg-label">開關／線徑</div>
+                ${UI.esc(e.breaker_spec || '－')}　${UI.esc(e.wire_spec || '')}</div>` : ''}
+              ${e.meter_no ? `<div><div class="dg-label">電號／水號</div>${UI.esc(e.meter_no)}</div>` : ''}
               <div><div class="dg-label">安裝日</div>${UI.esc(e.install_date || '－')}${age ? `（機齡 ${age} 年）` : ''}</div>
               <div><div class="dg-label">整機保固</div>${Cust.dateTag(e.warranty_end)}</div>
               <div><div class="dg-label">壓縮機保固</div>${Cust.dateTag(e.compressor_warranty_end)}</div>

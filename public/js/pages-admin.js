@@ -370,11 +370,52 @@ App.page('settings', {
         ['low_stock_alert', '低庫存提醒（1 開／0 關）'],
         ['refrigerant_alert_kg', '冷媒單次充填提醒門檻（kg）']
       ]],
+      ['工程專案', [
+        ['retention_rate_default', '業主保留款比例（0.05 = 5%）'],
+        ['project_warranty_months', '工程保固月數'],
+        ['day_rate_default', '點工日薪預設']
+      ]],
+      ['分包工班與勞務扣繳（稅率請依當年度國稅局／健保署公告調整）', [
+        ['sub_retention_rate', '對工班扣留的保留款比例'],
+        ['wht_rate', '勞務報酬扣繳率（0.10 = 10%）'],
+        ['wht_threshold', '扣繳起扣點（單次給付未達此額免扣）'],
+        ['nhi_rate', '二代健保補充保費費率（0.0211 = 2.11%）'],
+        ['nhi_threshold', '二代健保計收門檻']
+      ]],
+      ['到期提醒天數', [
+        ['contract_alert_days', '保養合約到期前'], ['warranty_alert_days', '設備保固到期前'],
+        ['service_due_alert_days', '下次保養到期前'], ['license_alert_days', '技師證照到期前'],
+        ['filing_alert_days', '報驗申報到期前'], ['company_license_alert_days', '公司承裝業換證前'],
+        ['audit_retention_days', '稽核軌跡保留天數']
+      ]],
+      ['官網基本設定', [
+        ['web_enabled', '對外開放官網（1 開／0 關）'],
+        ['web_business_hours', '營業時間', 'wide'],
+        ['web_service_area', '服務地區', 'wide'],
+        ['web_emergency_phone', '24 小時緊急叫修專線（留空則用公司電話）', 'wide'],
+        ['web_line_id', 'LINE 官方帳號 ID'],
+        ['web_line_url', 'LINE 加好友連結', 'wide'],
+        ['web_map_url', 'Google 地圖連結', 'wide'],
+        ['web_brands', '代理／常用品牌（逗號分隔）', 'wide'],
+        ['web_enquiry_max_per_hour', '同一 IP 每小時可送出的估價單數']
+      ]],
+      ['官網文案（清空即隱藏該區塊）', [
+        ['web_hero_title', '首頁大標', 'wide'],
+        ['web_hero_sub', '首頁副標', 'wide'],
+        ['web_hero_note', '首頁補充說明', 'wide'],
+        ['web_about_title', '關於我們標題', 'wide'],
+        ['web_about_body', '關於我們內文', 'area'],
+        ['web_quote_note', '線上估價說明', 'area'],
+        ['web_footer_note', '頁尾補充', 'area']
+      ]],
       ['選項清單（以逗號分隔）', [
         ['order_sources', '工單來源', 'wide'], ['appoint_slots', '預約時段', 'wide'],
         ['units', '單位', 'wide'], ['payment_terms', '付款條件', 'wide'],
         ['pay_methods', '收付款方式', 'wide'], ['refrigerants', '冷媒種類', 'wide'],
-        ['equipment_categories', '設備機種', 'wide'], ['power_specs', '電源規格', 'wide']
+        ['equipment_categories', '設備機種／標的物', 'wide'], ['power_specs', '電源規格', 'wide'],
+        ['order_sub_types', '工單細分案由', 'wide'], ['worker_types', '出工工別', 'wide'],
+        ['unit_price_categories', '工項單價分類', 'wide'], ['unit_price_units', '工項計價單位', 'wide'],
+        ['filing_kinds', '報驗申報類別', 'wide'], ['filing_authorities', '受理機關', 'wide']
       ]],
       ['保養檢查表預設項目（以分號 ; 分隔）', [
         ['check_items_default', '檢查項目', 'area']

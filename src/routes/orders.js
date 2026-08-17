@@ -68,11 +68,13 @@ router.get('/work-orders', requireStaff(), (req, res) => {
 
 function loadOrder(id) {
   const w = db.prepare(`SELECT w.*, c.name AS customer_name, c.tax_id, c.price_level, c.payment_terms,
-      s.name AS site_name, s.floor_note, sc.contract_no, u.name AS creator
+      s.name AS site_name, s.floor_note, sc.contract_no, u.name AS creator,
+      p.proj_no, p.name AS project_name
     FROM work_orders w JOIN customers c ON c.id = w.customer_id
     LEFT JOIN sites s ON s.id = w.site_id
     LEFT JOIN service_contracts sc ON sc.id = w.contract_id
     LEFT JOIN users u ON u.id = w.created_by
+    LEFT JOIN projects p ON p.id = w.project_id
     WHERE w.id = ?`).get(id);
   if (!w) return null;
   w.techs = db.prepare(`SELECT t.*, u.name, u.phone, u.tech_no FROM work_order_techs t
@@ -114,11 +116,12 @@ router.post('/work-orders', requireStaff('orders'), (req, res) => {
   const run = db.transaction(() => {
     const no = nextDocNo('WO', appointDate);
     const info = db.prepare(`INSERT INTO work_orders
-        (order_no, type, source, customer_id, site_id, contract_id, contact, phone, address, title, symptom,
-         priority, status, appoint_date, appoint_slot, is_warranty, is_contract, tax_mode,
-         travel_fee, note, created_by)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(no, b.type || 'repair', b.source || '電話', customer.id, b.site_id || null, b.contract_id || null,
+        (order_no, type, sub_type, source, customer_id, site_id, contract_id, project_id, contact, phone,
+         address, title, symptom, priority, status, appoint_date, appoint_slot, is_warranty, is_contract,
+         tax_mode, travel_fee, note, created_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(no, b.type || 'repair', b.sub_type || '', b.source || '電話', customer.id,
+        b.site_id || null, b.contract_id || null, b.project_id || null,
         b.contact || (site && site.contact) || customer.contact,
         b.phone || (site && site.phone) || customer.phone,
         b.address || (site && site.address) || customer.address,
@@ -151,9 +154,10 @@ router.post('/work-orders', requireStaff('orders'), (req, res) => {
 
 // ---- 修改工單基本欄位 ----
 
-const EDITABLE = ['type', 'source', 'site_id', 'contract_id', 'contact', 'phone', 'address', 'title', 'symptom',
-  'priority', 'appoint_date', 'appoint_slot', 'cause', 'action', 'suggestion', 'work_hours', 'headcount',
-  'labor_fee', 'travel_fee', 'other_fee', 'other_fee_name', 'discount', 'tax_mode', 'is_warranty', 'is_contract', 'note'];
+const EDITABLE = ['type', 'sub_type', 'source', 'site_id', 'contract_id', 'project_id', 'contact', 'phone',
+  'address', 'title', 'symptom', 'priority', 'appoint_date', 'appoint_slot', 'cause', 'action', 'suggestion',
+  'work_hours', 'headcount', 'labor_fee', 'travel_fee', 'other_fee', 'other_fee_name', 'discount', 'tax_mode',
+  'is_warranty', 'is_contract', 'note'];
 
 router.put('/work-orders/:id', requireStaff('orders'), (req, res) => {
   const b = req.body || {};
@@ -161,8 +165,9 @@ router.put('/work-orders/:id', requireStaff('orders'), (req, res) => {
   if (!w) return res.status(404).json({ error: '工單不存在' });
   if (['billed', 'cancelled'].includes(w.status)) return res.status(400).json({ error: `${STATUS_TW[w.status]}的工單不可修改` });
   const vals = EDITABLE.map(f => {
-    const v = b[f] ?? w[f];
-    if (['site_id', 'contract_id'].includes(f)) return v || null;
+    // 用 undefined 判斷「有沒有給這個欄位」，不能用 ??——傳 null 是要清空關聯，不是沒給
+    const v = b[f] === undefined ? w[f] : b[f];
+    if (['site_id', 'contract_id', 'project_id'].includes(f)) return v || null;
     if (['is_warranty', 'is_contract'].includes(f)) return (b[f] === undefined ? w[f] : (b[f] ? 1 : 0));
     if (['work_hours'].includes(f)) return Number(v) || 0;
     if (['headcount', 'labor_fee', 'travel_fee', 'other_fee', 'discount'].includes(f)) return Math.round(Number(v) || 0);

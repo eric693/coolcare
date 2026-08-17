@@ -25,7 +25,10 @@ const Items = {
         <tfoot><tr><td colspan="4" style="text-align:right"><strong>小計</strong></td>
           <td class="num it-sum"><strong>0</strong></td><td></td></tr></tfoot>
       </table></div>
-      ${opts.productOnly ? '' : '<button class="btn small secondary it-add" type="button" style="margin-top:8px">＋ 手動新增一行</button>'}`;
+      ${opts.productOnly ? '' : `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn small secondary it-add" type="button">＋ 手動新增一行</button>
+        ${opts.unitPrice ? '<button class="btn small secondary it-up" type="button">＋ 從工項單價庫帶入</button>' : ''}
+      </div>`}`;
 
     const body = el.querySelector('.it-body');
     const recalc = () => {
@@ -67,6 +70,10 @@ const Items = {
     const addBtn = el.querySelector('.it-add');
     if (addBtn) addBtn.onclick = () => addRow();
 
+    // 水電報價是「工項 × 數量」堆出來的，從單價庫一次挑幾項比逐行手打快得多
+    const upBtn = el.querySelector('.it-up');
+    if (upBtn) upBtn.onclick = () => Items.unitPriceDialog(picked => picked.forEach(addRow));
+
     const search = el.querySelector('.it-search');
     UI.productPicker(search, async p => {
       search.value = '';
@@ -91,6 +98,59 @@ const Items = {
       },
       recalc
     };
+  },
+
+  // 工項單價庫挑選器：勾選工項並填數量，確定後回傳可直接 addRow 的資料
+  unitPriceDialog(onPick) {
+    let all = [];
+    const render = (box, list) => {
+      box.innerHTML = UI.table(['選', '工項', '規格', '單位', '報價單價', '數量'], list.map(u => `
+        <tr>
+          <td><input type="checkbox" class="up-pick" data-id="${u.id}" style="width:auto"></td>
+          <td class="wrap"><strong>${UI.esc(u.name)}</strong>
+            ${u.code ? `<br><span style="font-size:12px;color:var(--muted)">${UI.esc(u.code)}　${UI.esc(u.category || '')}</span>` : ''}</td>
+          <td class="wrap">${UI.esc(u.spec || '')}</td>
+          <td>${UI.esc(u.unit)}</td>
+          <td class="num">${UI.money(u.price)}</td>
+          <td><input type="number" class="up-qty" data-id="${u.id}" value="1" step="0.01" style="width:80px"></td>
+        </tr>`), '單價庫沒有符合的工項');
+    };
+
+    UI.modal({
+      title: '從工項單價庫帶入', wide: true, submitText: '加入報價',
+      body: `<div class="toolbar" style="margin-top:0">
+          <input id="up-q" placeholder="搜尋工項／規格／編號" style="min-width:220px">
+          <select id="up-trade"><option value="">全部工種</option>
+            ${Object.entries(TW.trade).map(([k, v]) => `<option value="${k}">${UI.esc(v)}</option>`).join('')}
+          </select>
+        </div>
+        <div id="up-box"><div class="empty">載入中...</div></div>`,
+      onOpen: async body => {
+        const box = body.querySelector('#up-box');
+        const load = async () => {
+          const q = body.querySelector('#up-q').value;
+          const trade = body.querySelector('#up-trade').value;
+          all = await GET(`/unit-prices?q=${encodeURIComponent(q)}&trade=${trade}`).catch(() => []);
+          render(box, all);
+        };
+        let t;
+        body.querySelector('#up-q').addEventListener('input', () => {
+          clearTimeout(t); t = setTimeout(load, 300);
+        });
+        body.querySelector('#up-trade').onchange = load;
+        await load();
+      },
+      onSubmit: async body => {
+        const picks = [...body.querySelectorAll('.up-pick:checked')].map(c => ({
+          id: Number(c.dataset.id),
+          qty: Number(body.querySelector(`.up-qty[data-id="${c.dataset.id}"]`).value) || 1
+        }));
+        if (!picks.length) throw new Error('請至少勾選一個工項');
+        const r = await POST('/unit-prices/to-quote-items', { picks });
+        onPick(r.items);
+        UI.toast(`已帶入 ${r.items.length} 個工項`);
+      }
+    });
   }
 };
 
@@ -164,7 +224,7 @@ const Quote = {
       },
       onOpen: el => {
         items = Items.mount(el.querySelector('#qt-items'), {
-          rows: qt?.items, level: cust?.price_level || 'retail', priceLabel: '報價單價'
+          rows: qt?.items, level: cust?.price_level || 'retail', priceLabel: '報價單價', unitPrice: true
         });
         if (qt) return;
         UI.customerPicker(el.querySelector('#qt-customer'), async c => {
@@ -208,7 +268,8 @@ const Quote = {
         <button class="btn small secondary" id="print-qt">列印／存 PDF</button>
         ${q.status === 'accepted' ? '' : '<button class="btn small secondary" id="edit-qt">修改</button>'}
         ${q.order_id ? `<a class="btn small secondary" href="#orders/${q.order_id}">查看工單</a>`
-        : '<button class="btn" id="to-order">成交，轉開工單</button>'}`)}
+        : `<button class="btn secondary" id="to-project">成交，開工程專案</button>
+             <button class="btn" id="to-order">成交，轉開工單</button>`}`)}
 
       <div class="split">
         <div>
@@ -270,6 +331,25 @@ const Quote = {
           const r = await POST(`/quotes/${q.id}/to-order`, UI.formData(elm));
           UI.toast(`工單 ${r.order_no} 已建立`);
           location.hash = 'orders/' + r.id;
+        }
+      });
+    };
+
+    // 金額較大、需分期估驗計價的案子走工程專案，不走單張工單
+    const toProj = el.querySelector('#to-project');
+    if (toProj) toProj.onclick = () => {
+      UI.modal({
+        title: '報價成交，開立工程專案', submitText: '建立工程',
+        body: `<div class="form-grid">
+          ${UI.select('trade', '工種', App.mapOpts(TW.trade), { value: 'mixed' })}
+          ${UI.select('kind', '工程性質', App.mapOpts(TW.project_kind), { value: 'new' })}
+        </div>
+        ${App.noticeBox(`合約金額將帶入報價未稅小計 ${UI.money(q.subtotal)}。\n`
+          + '需要分期估驗計價、扣保留款、發包工班的案子請走工程專案；單次到場施工用工單即可。')}`,
+        onSubmit: async elm => {
+          const r = await POST(`/projects/from-quote/${q.id}`, UI.formData(elm));
+          UI.toast(`工程專案 ${r.proj_no} 已建立`);
+          location.hash = 'projects/' + r.id;
         }
       });
     };

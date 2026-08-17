@@ -151,9 +151,10 @@ router.get('/equipments/:id', requireStaff(), (req, res) => {
   res.json(e);
 });
 
-const EQUIP_FIELDS = ['customer_id', 'site_id', 'asset_no', 'category', 'brand', 'model', 'serial_no', 'location',
-  'capacity_kw', 'tonnage', 'refrigerant', 'refrigerant_kg', 'power_spec', 'install_date', 'warranty_end',
-  'compressor_warranty_end', 'next_service_date', 'status', 'note'];
+const EQUIP_FIELDS = ['customer_id', 'site_id', 'asset_no', 'trade', 'category', 'brand', 'model', 'serial_no',
+  'location', 'capacity_kw', 'tonnage', 'refrigerant', 'refrigerant_kg', 'power_spec',
+  'pipe_material', 'pipe_size', 'breaker_spec', 'wire_spec', 'meter_no',
+  'install_date', 'warranty_end', 'compressor_warranty_end', 'next_service_date', 'status', 'note'];
 
 function equipVals(b, old = {}) {
   return EQUIP_FIELDS.map(f => {
@@ -161,6 +162,9 @@ function equipVals(b, old = {}) {
     if (['capacity_kw', 'tonnage', 'refrigerant_kg'].includes(f)) return v === '' || v == null ? null : Number(v);
     if (f === 'site_id') return v || null;
     if (f === 'customer_id') return Number(v);
+    // 有 CHECK 約束的欄位不能落成空字串，未指定時給預設值
+    if (f === 'status') return v || 'active';
+    if (f === 'trade') return v || 'hvac';
     return v ?? '';
   });
 }

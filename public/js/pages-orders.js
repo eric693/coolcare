@@ -132,7 +132,10 @@ const Orders = {
         <div class="form-row full" id="wo-site-row" style="display:none"><label>服務地點</label>
           <select name="site_id"><option value="">未指定</option></select></div>
         ${UI.select('type', '工單類別', App.mapOpts(TW.order_type))}
+        ${UI.inputList('sub_type', '細分案由', App.meta.order_sub_types || [], { placeholder: '例：漏水抓漏、跳電檢修' })}
         ${UI.select('source', '來源', App.opts(App.meta.order_sources || ['電話']))}
+        ${UI.select('project_id', '所屬工程專案', [['', '不掛工程（單次派工）'],
+        ...(App.meta.open_projects || []).map(p => [p.id, `${p.proj_no} ${p.name}`])], { full: true })}
         ${UI.select('priority', '優先度', App.mapOpts(TW.priority), { value: 'normal' })}
         ${UI.input('appoint_date', '預約到場日', { type: 'date', value: defaultDate || UI.today() })}
         ${UI.select('appoint_slot', '時段', [['', '未指定'], ...App.opts(App.meta.appoint_slots || [])])}
@@ -228,7 +231,9 @@ const Orders = {
           ${w.status === 'cancelled' ? UI.tag('已取消', 'danger') : ''}
         </div>
         <div class="detail-grid" style="margin-top:12px">
-          <div><div class="dg-label">類別／來源</div>${TW.order_type[w.type]}　${UI.esc(w.source)}</div>
+          <div><div class="dg-label">類別／來源</div>${TW.order_type[w.type]}${w.sub_type ? '（' + UI.esc(w.sub_type) + '）' : ''}　${UI.esc(w.source)}</div>
+          ${w.project_id ? `<div><div class="dg-label">所屬工程</div>
+            <a href="#projects/${w.project_id}">${UI.esc(w.proj_no)} ${UI.esc(w.project_name)}</a></div>` : ''}
           <div><div class="dg-label">優先度</div>${UI.tag(TW.priority[w.priority], TW.priority_cls[w.priority])}</div>
           <div><div class="dg-label">預約到場</div>${UI.esc(w.appoint_date)} ${UI.esc(w.appoint_slot || '')}</div>
           <div><div class="dg-label">聯絡人</div>${UI.esc(w.contact || '-')}　${UI.esc(w.phone || '')}</div>
@@ -443,7 +448,11 @@ const Orders = {
       title: `編輯工單 ${w.order_no}`, wide: true,
       body: `<div class="form-grid">
         ${UI.select('type', '類別', App.mapOpts(TW.order_type), { value: w.type })}
+        ${UI.inputList('sub_type', '細分案由', App.meta.order_sub_types || [], { value: w.sub_type })}
         ${UI.select('priority', '優先度', App.mapOpts(TW.priority), { value: w.priority })}
+        ${UI.select('project_id', '所屬工程專案', [['', '不掛工程（單次派工）'],
+        ...(App.meta.open_projects || []).map(p => [p.id, `${p.proj_no} ${p.name}`])],
+        { value: w.project_id || '', full: true })}
         ${UI.input('appoint_date', '預約到場日', { type: 'date', value: w.appoint_date })}
         ${UI.select('appoint_slot', '時段', [['', '未指定'], ...App.opts(App.meta.appoint_slots || [])], { value: w.appoint_slot })}
         ${UI.input('contact', '現場聯絡人', { value: w.contact })}
