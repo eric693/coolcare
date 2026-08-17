@@ -66,6 +66,10 @@ router.get('/overview', requireCustomer, (req, res) => {
     open_orders: db.prepare(`SELECT id, order_no, type, title, status, appoint_date, appoint_slot, address
       FROM work_orders WHERE customer_id = ? AND status IN ('draft','assigned','departed','working')
       ORDER BY appoint_date`).all(cid),
+    open_projects: db.prepare(`SELECT id, proj_no, name, status, progress, due_date
+      FROM projects WHERE customer_id = ? AND status IN ('draft','ongoing','paused','completed')
+      ORDER BY id DESC`).all(cid)
+      .map(p => ({ ...p, status_text: PROJ_STATUS_TW[p.status] || p.status })),
     equipment_count: db.prepare("SELECT COUNT(*) n FROM equipments WHERE customer_id = ? AND status != 'scrapped'").get(cid).n,
     due_services: db.prepare(`SELECT e.id, e.asset_no, e.brand, e.model, e.location, e.next_service_date
       FROM equipments e WHERE e.customer_id = ? AND e.status = 'active'
@@ -78,6 +82,73 @@ router.get('/overview', requireCustomer, (req, res) => {
     announcements: db.prepare(`SELECT title, body, publish_date FROM announcements
       WHERE to_customer = 1 AND (publish_date = '' OR publish_date <= ?) AND (expire_date = '' OR expire_date >= ?)
       ORDER BY publish_date DESC LIMIT 5`).all(d, d)
+  });
+});
+
+// ---- 我的工程 ----
+//
+// 業主看得到進度、已計價金額與保留款，但看不到我們的成本、分包對象與分包金額，
+// 所以這裡逐欄挑選要回傳的內容，不直接把 projects 整列吐出去。
+
+const PROJ_STATUS_TW = {
+  draft: '準備中', ongoing: '施工中', paused: '暫停施工', completed: '已完工',
+  accepted: '已驗收', settled: '已結案', cancelled: '已取消'
+};
+const BILL_KIND_TW = { deposit: '訂金', progress: '估驗計價', final: '尾款', retention: '保留款退還' };
+
+router.get('/projects', requireCustomer, (req, res) => {
+  const rows = db.prepare(`SELECT id, proj_no, name, trade, kind, address, status, progress,
+      contract_amount, change_amount, start_date, due_date, finish_date, accept_date, warranty_end
+    FROM projects WHERE customer_id = ? AND status != 'cancelled' ORDER BY id DESC`).all(req.customer.id);
+  for (const r of rows) {
+    r.contract_total = r.contract_amount + r.change_amount;
+    const b = db.prepare(`SELECT
+        COALESCE(SUM(CASE WHEN kind != 'retention' THEN gross_amount ELSE 0 END),0) AS billed,
+        COALESCE(SUM(retention),0) AS retention
+      FROM project_billings WHERE project_id = ? AND status != 'cancelled'`).get(r.id);
+    r.billed = b.billed;
+    r.retention = b.retention;
+    r.status_text = PROJ_STATUS_TW[r.status] || r.status;
+    delete r.contract_amount;
+    delete r.change_amount;
+  }
+  res.json(rows);
+});
+
+router.get('/projects/:id', requireCustomer, (req, res) => {
+  const p = db.prepare('SELECT * FROM projects WHERE id = ? AND customer_id = ?')
+    .get(req.params.id, req.customer.id);
+  if (!p) return res.status(404).json({ error: '工程不存在' });
+
+  const billings = db.prepare(`SELECT b.seq, b.kind, b.bill_date, b.progress_pct, b.gross_amount,
+      b.retention, b.deduct, b.deduct_note, b.net_amount, i.inv_no, i.id AS invoice_id,
+      i.status AS invoice_status, i.total AS invoice_total, i.paid AS invoice_paid
+    FROM project_billings b LEFT JOIN invoices i ON i.id = b.invoice_id
+    WHERE b.project_id = ? AND b.status != 'cancelled' ORDER BY b.seq`).all(p.id);
+  const retentionHeld = billings.reduce((s, b) => s + b.retention, 0) - p.retention_released;
+
+  res.json({
+    id: p.id, proj_no: p.proj_no, name: p.name, trade: p.trade, kind: p.kind,
+    address: p.address, scope: p.scope, progress: p.progress,
+    status: p.status, status_text: PROJ_STATUS_TW[p.status] || p.status,
+    contract_no: p.contract_no, contract_date: p.contract_date,
+    contract_total: p.contract_amount + p.change_amount,
+    retention_rate: p.retention_rate, retention_held: retentionHeld,
+    start_date: p.start_date, due_date: p.due_date, finish_date: p.finish_date,
+    accept_date: p.accept_date, warranty_months: p.warranty_months, warranty_end: p.warranty_end,
+    billed: billings.filter(b => b.kind !== 'retention').reduce((s, b) => s + b.gross_amount, 0),
+    billings: billings.map(b => ({ ...b, kind_text: BILL_KIND_TW[b.kind] || b.kind })),
+    // 已核准的追加減帳業主本來就簽過，看得到才對得起帳
+    changes: db.prepare(`SELECT change_no, change_date, title, amount, reason, approved_by, approved_date
+      FROM project_changes WHERE project_id = ? AND status = 'approved' ORDER BY change_date, id`).all(p.id),
+    // 該工程底下的施工紀錄（不含金額，金額看估驗計價那一欄就好）
+    orders: db.prepare(`SELECT id, order_no, type, title, status, appoint_date, finished_at
+      FROM work_orders WHERE project_id = ? AND status != 'cancelled'
+      ORDER BY appoint_date DESC, id DESC`).all(p.id)
+      .map(o => ({ ...o, status_text: STATUS_TW[o.status] || o.status })),
+    photos: db.prepare(`SELECT ph.stage, ph.path, ph.caption, w.order_no, w.appoint_date
+      FROM work_order_photos ph JOIN work_orders w ON w.id = ph.order_id
+      WHERE w.project_id = ? ORDER BY w.appoint_date, ph.id LIMIT 60`).all(p.id)
   });
 });
 

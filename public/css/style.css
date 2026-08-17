@@ -421,3 +421,79 @@ td.num, th.num { text-align: right; }
   border-radius: 50%; border: 0; background: var(--danger); color: #fff;
   font-size: 15px; line-height: 1; cursor: pointer;
 }
+
+/* ================= 客戶專區 =================
+   員工端是側欄式桌面版面，客戶端是手機優先的上方分頁式，所以樣式分開寫。 */
+
+.portal-top {
+  position: sticky; top: 0; z-index: 20; background: var(--primary-dark, #0d4d7d);
+  color: #fff; box-shadow: 0 2px 8px rgba(16, 46, 70, .18);
+}
+.pt-inner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; font-size: 15px;
+}
+.pt-inner .spacer { flex: 1; }
+.pt-inner .btn.small.secondary {
+  background: rgba(255, 255, 255, .16); color: #fff; border-color: rgba(255, 255, 255, .3);
+}
+.pt-user { font-size: 13.5px; opacity: .9; }
+
+/* 分頁列：項目多時橫向捲動，不擠成一團也不換行破版 */
+.pt-nav {
+  display: flex; gap: 2px; overflow-x: auto; padding: 0 8px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.pt-nav::-webkit-scrollbar { display: none; }
+.pt-nav a {
+  flex: none; padding: 11px 14px; color: rgba(255, 255, 255, .78);
+  font-size: 14.5px; white-space: nowrap; border-bottom: 3px solid transparent;
+}
+.pt-nav a:hover { color: #fff; text-decoration: none; }
+.pt-nav a.active { color: #fff; font-weight: 600; border-bottom-color: var(--accent, #6cc4f5); }
+
+.portal-main { padding: 14px 14px 76px; max-width: 900px; margin: 0 auto; }
+
+/* 固定在底部的撥號鈕：客戶最常做的動作就是打電話 */
+.portal-call {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: block; text-align: center; padding: 13px;
+  background: var(--primary, #1268a8); color: #fff; font-weight: 600; font-size: 15.5px;
+}
+.portal-call:hover { text-decoration: none; opacity: .94; }
+
+.card.notice { border-left: 4px solid var(--accent, #6cc4f5); }
+
+/* 案件進度條（受理 → 已排定 → 出發 → 施工 → 完工） */
+.steps { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 4px; }
+.steps .step {
+  display: flex; align-items: center; gap: 5px; flex: 1; min-width: 78px;
+  font-size: 12.5px; color: var(--muted); position: relative;
+}
+.steps .step .dot {
+  width: 11px; height: 11px; border-radius: 50%; flex: none;
+  background: var(--border, #dfe6ec); border: 2px solid var(--border, #dfe6ec);
+}
+.steps .step.on { color: var(--primary-dark, #0d4d7d); font-weight: 600; }
+.steps .step.on .dot { background: var(--primary, #1268a8); border-color: var(--primary, #1268a8); }
+
+/* 完工評分 */
+.rate-row { display: flex; gap: 6px; align-items: center; }
+.rate-star {
+  font-size: 30px; line-height: 1; color: #d6dee6; cursor: pointer;
+  background: none; border: 0; padding: 0 2px;
+}
+.rate-star.on, .rate-star:hover { color: #f0a500; }
+
+/* 報修時勾選設備 */
+.rq-equip {
+  display: flex; align-items: center; gap: 6px; font-weight: 400; font-size: 13.5px;
+  border: 1px solid var(--border, #dfe6ec); border-radius: 8px; padding: 7px 11px;
+}
+.rq-equip input { width: auto; }
+.rq-equip:has(input:checked) { border-color: var(--primary, #1268a8); background: var(--primary-light, #eaf3fa); }
+
+@media (min-width: 760px) {
+  .pt-inner { padding: 12px 20px; }
+  .portal-main { padding: 20px 20px 80px; }
+}

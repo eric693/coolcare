@@ -10,7 +10,8 @@ const TWP = {
   inv_status: { unpaid: '未付款', partial: '部分付款', paid: '已付清', void: '已作廢' },
   inv_cls: { unpaid: 'warn', partial: 'warn', paid: 'ok', void: 'danger' },
   equip_status: { active: '使用中', repair: '維修中', scrapped: '已報廢' },
-  check_result: { ok: '正常', fix: '已處理', ng: '異常', na: '不適用' }
+  check_result: { ok: '正常', fix: '已處理', ng: '異常', na: '不適用' },
+  photo_stage: { before: '施工前', during: '施工中', after: '施工後', fault: '故障點', other: '其他' }
 };
 
 const Portal = {
@@ -18,7 +19,7 @@ const Portal = {
   texts: {},
   tabs: [
     ['home', '首頁'], ['repair', '線上報修'], ['orders', '維修進度'],
-    ['equipments', '我的設備'], ['invoices', '帳單']
+    ['projects', '我的工程'], ['equipments', '我的設備'], ['invoices', '帳單']
   ],
 
   // api.js 在 401 時會呼叫 App.onUnauthorized
@@ -151,7 +152,17 @@ const Portal = {
           <div class="stat clickable" onclick="location.hash='invoices'">
             <div class="num ${unpaidTotal ? 'warn' : ''}">${UI.num(unpaidTotal)}</div>
             <div class="label">未付款金額</div></div>
+          ${d.open_projects && d.open_projects.length ? `<div class="stat clickable" onclick="location.hash='projects'">
+            <div class="num">${d.open_projects.length}</div><div class="label">進行中工程</div></div>` : ''}
         </div>
+
+        ${d.open_projects && d.open_projects.length ? `<div class="card"><h3>進行中的工程</h3>
+          <ul class="mini-list">${d.open_projects.map(p => `
+            <li style="cursor:pointer" onclick="location.hash='projects/${p.id}'">
+              <div class="ml-main">${UI.esc(p.name)}
+                <div class="ml-sub">${UI.esc(p.proj_no)}${p.due_date ? '　預計完工 ' + UI.esc(p.due_date) : ''}</div></div>
+              <div style="text-align:right">${UI.tag(p.status_text || '')}
+                <div class="ml-sub">進度 ${p.progress}%</div></div></li>`).join('')}</ul></div>` : ''}
 
         <div class="card"><h3>處理中的案件</h3>
           ${d.open_orders.length ? `<ul class="mini-list">${d.open_orders.map(o => `
@@ -188,6 +199,35 @@ const Portal = {
       if (go) go.onclick = () => { location.hash = 'repair'; };
       const book = el.querySelector('#book-maintain');
       if (book) book.onclick = () => { location.hash = 'repair'; };
+    },
+
+    // ---- 我的工程 ----
+    async projects(el, id) {
+      if (id) return Portal.renderProject(el, id);
+      const rows = await GET('/portal/projects');
+      if (!rows.length) {
+        el.innerHTML = '<div class="empty">目前沒有工程案件。單次到府維修請看「維修進度」。</div>';
+        return;
+      }
+      el.innerHTML = rows.map(p => `
+        <div class="card" style="cursor:pointer" onclick="location.hash='projects/${p.id}'">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+            <div><h3 style="margin:0">${UI.esc(p.name)}</h3>
+              <div style="color:var(--muted);font-size:12.5px">${UI.esc(p.proj_no)}　${UI.esc(p.address || '')}</div></div>
+            ${UI.tag(p.status_text || '')}
+          </div>
+          <div style="margin-top:10px">
+            <div class="progress-bar" style="max-width:100%;margin:0 0 4px">
+              <span style="width:${Math.max(0, Math.min(100, p.progress))}%"></span></div>
+            <span style="font-size:13px;color:var(--muted)">施工進度 ${p.progress}%</span>
+          </div>
+          <div class="detail-grid" style="margin-top:10px">
+            <div><div class="dg-label">合約金額（未稅）</div>${UI.money(p.contract_total)}</div>
+            <div><div class="dg-label">已計價</div>${UI.money(p.billed)}</div>
+            <div><div class="dg-label">工期</div>${UI.esc(p.start_date || '－')} ~ ${UI.esc(p.due_date || '－')}</div>
+            ${p.warranty_end ? `<div><div class="dg-label">保固到期</div>${UI.esc(p.warranty_end)}</div>` : ''}
+          </div>
+        </div>`).join('');
     },
 
     // ---- 線上報修 ----
@@ -336,6 +376,97 @@ const Portal = {
             </li>`).join('')}</ul>` : '<div class="empty">尚無帳單</div>'}
         </div>`;
     }
+  },
+
+  // ---- 工程明細：進度、估驗計價、追加減帳、施工紀錄與照片 ----
+  async renderProject(el, id) {
+    const p = await GET('/portal/projects/' + id);
+    // 待付款只算「已開立帳單」的部分——已估驗但還沒請款的期別不該讓業主以為現在就要付
+    const invoiced = p.billings.filter(b => b.invoice_id);
+    const unpaid = invoiced.reduce((s, b) => s + (b.invoice_total - b.invoice_paid), 0);
+    const pendingBill = p.billings.filter(b => !b.invoice_id).reduce((s, b) => s + b.net_amount, 0);
+
+    el.innerHTML = `
+      <div class="toolbar"><a class="btn small secondary" href="#projects">← 回工程列表</a></div>
+
+      <div class="card">
+        <h3 style="margin:0">${UI.esc(p.name)}　${UI.tag(p.status_text)}</h3>
+        <div style="color:var(--muted);font-size:12.5px">${UI.esc(p.proj_no)}
+          ${p.contract_no ? '　合約 ' + UI.esc(p.contract_no) : ''}</div>
+        <div style="margin-top:12px">
+          <div class="progress-bar" style="max-width:100%;margin:0 0 4px">
+            <span style="width:${Math.max(0, Math.min(100, p.progress))}%"></span></div>
+          <span style="font-size:13px;color:var(--muted)">施工進度 ${p.progress}%</span>
+        </div>
+        <div class="detail-grid" style="margin-top:12px">
+          <div><div class="dg-label">施工地址</div>${UI.esc(p.address || '－')}</div>
+          <div><div class="dg-label">合約金額（未稅）</div>${UI.money(p.contract_total)}</div>
+          <div><div class="dg-label">工期</div>${UI.esc(p.start_date || '－')} ~ ${UI.esc(p.due_date || '－')}</div>
+          <div><div class="dg-label">實際完工／驗收</div>${UI.esc(p.finish_date || '－')} ／ ${UI.esc(p.accept_date || '－')}</div>
+          ${p.warranty_end ? `<div><div class="dg-label">保固到期</div>${UI.esc(p.warranty_end)}（${p.warranty_months} 個月）</div>` : ''}
+        </div>
+        ${p.scope ? `<div style="margin-top:10px;padding:10px;background:var(--primary-light);border-radius:8px;font-size:13.5px;white-space:pre-wrap">${UI.esc(p.scope)}</div>` : ''}
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat"><div class="num">${UI.num(p.billed)}</div><div class="label">已估驗計價</div></div>
+        <div class="stat"><div class="num">${UI.num(p.contract_total - p.billed)}</div><div class="label">尚未計價</div></div>
+        <div class="stat"><div class="num">${UI.num(p.retention_held)}</div>
+          <div class="label">保留款（驗收後退還）</div></div>
+        <div class="stat"><div class="num ${unpaid > 0 ? 'warn' : ''}">${UI.num(unpaid)}</div>
+          <div class="label">帳單待付款</div></div>
+        ${pendingBill ? `<div class="stat"><div class="num">${UI.num(pendingBill)}</div>
+          <div class="label">已估驗待開單</div></div>` : ''}
+      </div>
+
+      <div class="card"><h3>估驗計價紀錄</h3>
+        ${p.billings.length ? UI.table(['期別', '日期', '累計完成', '估驗金額', '保留款', '扣款', '本期應付', '帳單'],
+      p.billings.map(b => `
+          <tr>
+            <td>第 ${b.seq} 期<br><span style="font-size:12px;color:var(--muted)">${UI.esc(b.kind_text)}</span></td>
+            <td>${UI.esc(b.bill_date)}</td>
+            <td class="num">${b.kind === 'retention' ? '－' : b.progress_pct + '%'}</td>
+            <td class="num">${UI.money(b.gross_amount)}</td>
+            <td class="num">${b.retention ? '-' + UI.num(b.retention) : '－'}</td>
+            <td class="num">${b.deduct ? `-${UI.num(b.deduct)}<br><span style="font-size:12px;color:var(--muted)">${UI.esc(b.deduct_note || '')}</span>` : '－'}</td>
+            <td class="num"><strong>${UI.money(b.net_amount)}</strong></td>
+            <td>${b.inv_no
+        ? `<a href="#invoices/${b.invoice_id}">${UI.esc(b.inv_no)}</a><br>
+                 <span style="font-size:12px;color:var(--muted)">已付 ${UI.num(b.invoice_paid)}／${UI.num(b.invoice_total)}</span>`
+        : '<span style="color:var(--muted)">尚未開立</span>'}</td>
+          </tr>`))
+        : '<div style="color:var(--muted);font-size:13.5px">尚未辦理估驗計價</div>'}
+        ${p.retention_held ? Portal.noticeBox(
+          `保留款 ${UI.money(p.retention_held)}（合約 ${(p.retention_rate * 100).toFixed(1)}%）於工程驗收後退還，`
+          + '屆時會另開一張請款單向您請領。') : ''}
+      </div>
+
+      ${p.changes.length ? `<div class="card"><h3>追加減帳（已簽認）</h3>
+        ${UI.table(['變更序號', '日期', '項目', '金額', '簽認'], p.changes.map(c => `
+          <tr><td>${UI.esc(c.change_no)}</td><td>${UI.esc(c.change_date)}</td>
+            <td class="wrap">${UI.esc(c.title)}
+              ${c.reason ? `<br><span style="font-size:12px;color:var(--muted)">${UI.esc(c.reason)}</span>` : ''}</td>
+            <td class="num"><strong>${c.amount > 0 ? '+' : ''}${UI.money(c.amount)}</strong></td>
+            <td>${UI.esc(c.approved_by || '')}<br>
+              <span style="font-size:12px;color:var(--muted)">${UI.esc(c.approved_date || '')}</span></td>
+          </tr>`))}
+      </div>` : ''}
+
+      ${p.orders.length ? `<div class="card"><h3>施工紀錄</h3>
+        <ul class="mini-list">${p.orders.map(o => `
+          <li style="cursor:pointer" onclick="location.hash='orders/${o.id}'">
+            <div class="ml-main">${UI.esc(o.title || TWP.order_type[o.type] || '施工')}
+              <div class="ml-sub">${UI.esc(o.order_no)}　${UI.esc(o.appoint_date || '')}</div></div>
+            <div>${UI.tag(o.status_text || '', TWP.status_cls[o.status] || '')}</div></li>`).join('')}</ul>
+      </div>` : ''}
+
+      ${p.photos.length ? `<div class="card"><h3>施工照片（${p.photos.length}）</h3>
+        <div class="photo-grid">${p.photos.map(ph => `
+          <a href="${UI.esc(ph.path)}" target="_blank">
+            <img src="${UI.esc(ph.path)}" loading="lazy">
+            <span>${UI.esc(TWP.photo_stage[ph.stage] || ph.stage)}　${UI.esc(ph.appoint_date || '')}</span>
+          </a>`).join('')}</div>
+      </div>` : ''}`;
   },
 
   // ---- 案件明細（含評分） ----

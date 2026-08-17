@@ -273,6 +273,15 @@ router.get('/web-content/:type', requireStaff('website'), (req, res) => {
     const ph = db.prepare('SELECT * FROM web_showcase_photos WHERE showcase_id = ? ORDER BY sort, id');
     for (const r of rows) r.photos = ph.all(r.id);
   }
+  if (req.params.type === 'products') {
+    // 帶出已連結料件的顯示名稱，編輯時搜尋框才看得到目前掛的是哪一筆
+    const p = db.prepare('SELECT sku, name FROM products WHERE id = ?');
+    for (const r of rows) {
+      if (!r.product_id) continue;
+      const hit = p.get(r.product_id);
+      r.product_name = hit ? `${hit.sku} ${hit.name}` : '';
+    }
+  }
   res.json(rows);
 });
 

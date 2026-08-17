@@ -188,7 +188,9 @@ const Proj = {
         ? `<a href="#invoices/${b.invoice_id}">${UI.esc(b.inv_no)}</a><br>
                      <span style="font-size:12px;color:var(--muted)">已收 ${UI.num(b.invoice_paid)}／${UI.num(b.invoice_total)}</span>`
         : UI.tag(TW.pbill_status[b.status] || b.status, b.status === 'confirmed' ? 'warn' : '')}</td>
-                <td class="num">${b.invoice_id ? ''
+                <td class="num" style="white-space:nowrap">
+                  <button class="btn small secondary" data-printbill="${b.id}">列印</button>
+                  ${b.invoice_id ? ''
         : `<button class="btn small" data-bill="${b.id}">開請款單</button>
                      <button class="btn small secondary" data-delbill="${b.id}">刪</button>`}</td>
               </tr>`), '尚未辦理估驗計價')}
@@ -341,6 +343,75 @@ const Proj = {
         try { await DEL('/project-billings/' + b.dataset.delbill); App.reload(); } catch (e) { UI.err(e); }
       };
     });
+    el.querySelectorAll('[data-printbill]').forEach(b => {
+      b.onclick = () => Proj.printBilling(p, p.billings.find(x => x.id === Number(b.dataset.printbill)));
+    });
+  },
+
+  // ---- 估驗計價單列印（A4，給業主簽認用）----
+  printBilling(p, b) {
+    // 累計欄位只算到本期為止，業主看到的「累計」才會跟這張單的期別一致
+    const upto = p.billings.filter(x => x.seq <= b.seq && x.status !== 'cancelled');
+    const cumGross = upto.filter(x => x.kind !== 'retention').reduce((s, x) => s + x.gross_amount, 0);
+    const cumRetention = upto.reduce((s, x) => s + x.retention, 0);
+    const rate = Number(App.meta.tax_rate || 0.05);
+    const tax = p.tax_mode === 'free' ? 0 : Math.round(b.net_amount * rate);
+
+    const row = (label, value, strong) =>
+      `<tr><td>${UI.esc(label)}</td><td class="r"${strong ? ' style="font-weight:700"' : ''}>${value}</td></tr>`;
+
+    Print.open(`估驗計價單 ${p.proj_no}-${b.seq}`, `
+      <h1>${UI.esc(App.me.company_name)}　工程估驗計價單</h1>
+      <div class="meta">工程案號 ${UI.esc(p.proj_no)}　第 ${b.seq} 期（${UI.esc(TW.billing_kind[b.kind] || b.kind)}）
+        估驗日期 ${UI.esc(b.bill_date)}</div>
+
+      <table class="head">
+        <tr><td style="width:52%"><strong>業　　主：</strong>${UI.esc(p.customer_name)}
+          ${p.tax_id ? `　統編 ${UI.esc(p.tax_id)}` : ''}</td>
+          <td><strong>合約編號：</strong>${UI.esc(p.contract_no || '－')}</td></tr>
+        <tr><td><strong>工程名稱：</strong>${UI.esc(p.name)}</td>
+          <td><strong>簽約日期：</strong>${UI.esc(p.contract_date || '－')}</td></tr>
+        <tr><td><strong>施工地址：</strong>${UI.esc(p.address || '－')}</td>
+          <td><strong>契約完工：</strong>${UI.esc(p.due_date || '－')}</td></tr>
+      </table>
+
+      <table class="grid">
+        <thead><tr><th style="width:34%">項目</th><th class="r">金額（新台幣元）</th><th>說明</th></tr></thead>
+        <tbody>
+          <tr><td>原契約金額（未稅）</td><td class="r">${UI.num(p.contract_amount)}</td><td>－</td></tr>
+          ${p.finance.change_amount
+        ? `<tr><td>追加減帳（已簽認）</td><td class="r">${p.finance.change_amount > 0 ? '+' : ''}${UI.num(p.finance.change_amount)}</td>
+               <td>變更單 ${p.changes.filter(c => c.status === 'approved').map(c => UI.esc(c.change_no)).join('、') || '－'}</td></tr>` : ''}
+          <tr><td><strong>契約總金額</strong></td><td class="r"><strong>${UI.num(p.finance.contract_total)}</strong></td><td>含追加減帳</td></tr>
+          <tr><td>本期累計完成比例</td><td class="r">${b.kind === 'retention' ? '－' : b.progress_pct + ' %'}</td>
+            <td>${b.kind === 'retention' ? '保留款退還，不計入施工進度' : '經雙方會同估驗確認'}</td></tr>
+          <tr><td>累計估驗金額</td><td class="r">${UI.num(cumGross)}</td><td>含本期</td></tr>
+          <tr><td>前期累計估驗</td><td class="r">${UI.num(cumGross - (b.kind === 'retention' ? 0 : b.gross_amount))}</td><td>－</td></tr>
+        </tbody>
+      </table>
+
+      <table class="sum">
+        ${row('本期估驗金額（未稅）', UI.num(b.gross_amount))}
+        ${b.retention ? row(`減：保留款 ${(p.retention_rate * 100).toFixed(1)}%`, '-' + UI.num(b.retention)) : ''}
+        ${b.deduct ? row(`減：${b.deduct_note || '其他扣款'}`, '-' + UI.num(b.deduct)) : ''}
+        ${row('本期請款小計（未稅）', UI.num(b.net_amount), true)}
+        ${tax ? row(`營業稅 ${(rate * 100).toFixed(0)}%`, UI.num(tax)) : ''}
+        <tr class="total"><td>本期應付總額</td><td class="r">${UI.money(b.net_amount + tax)}</td></tr>
+      </table>
+
+      <div class="terms">
+        <strong>保留款說明：</strong>本工程依契約按每期估驗金額扣留 ${(p.retention_rate * 100).toFixed(1)}%
+        作為保留款，截至本期累計扣留 ${UI.money(cumRetention)}${p.retention_released ? `（已退還 ${UI.money(p.retention_released)}）` : ''}，
+        於工程驗收合格後依約退還。<br>
+        ${b.deduct_note ? `<strong>扣款說明：</strong>${UI.esc(b.deduct_note)}<br>` : ''}
+        ${b.note ? `<strong>備　　註：</strong>${UI.esc(b.note)}<br>` : ''}
+        本估驗計價單經雙方簽認後，作為本期請款之依據。
+      </div>
+
+      <div class="sign">
+        <div>業主（甲方）簽認：______________________<br><br>日期：____年____月____日</div>
+        <div>承攬人（乙方）：______________________<br><br>日期：____年____月____日</div>
+      </div>`);
   },
 
   // ---- 追加減帳 ----

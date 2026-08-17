@@ -138,6 +138,10 @@ const WEB_TABS = {
       UI.esc(r.price_note || '－'), r.sort, ''
     ],
     form: r => `
+      <div class="form-row full"><label>連結內部料件（選填，帶入品名規格後仍可自行修改）</label>
+        <input id="wp-product" placeholder="輸入料號或品名搜尋" autocomplete="off"
+          value="${UI.esc(r?.product_name || '')}">
+        <input type="hidden" name="product_id" value="${r?.product_id || ''}"></div>
       ${UI.input('name', '商品名稱', { value: r?.name, required: true, full: true })}
       ${UI.input('brand', '品牌', { value: r?.brand, placeholder: '例：電光牌、TOTO、大金' })}
       ${UI.input('model', '型號', { value: r?.model })}
@@ -273,6 +277,28 @@ const Web = {
         </div>` : ''}
         ${def.gallery && isNew ? App.noticeBox('先儲存後再回來編輯，即可上傳實績相簿。') : ''}`,
       onOpen: body => {
+        // 商品資訊可掛內部料件：選定後帶入品名規格，但官網顯示文字仍可自行改寫
+        const prod = body.querySelector('#wp-product');
+        if (prod) {
+          UI.productPicker(prod, p => {
+            prod.value = `${p.sku} ${p.name}`;
+            body.querySelector('[name=product_id]').value = p.id;
+            const set = (sel, v) => {
+              const f = body.querySelector(sel);
+              if (f && !f.value) f.value = v || '';
+            };
+            set('[name=name]', p.name);
+            set('[name=brand]', p.brand);
+            set('[name=model]', p.model);
+            set('[name=spec]', p.spec);
+            UI.toast('已帶入料件資料');
+          });
+          // 清空搜尋框視為解除連結，避免改掛時留下錯誤的關聯
+          prod.addEventListener('change', () => {
+            if (!prod.value.trim()) body.querySelector('[name=product_id]').value = '';
+          });
+        }
+
         const img = body.querySelector('#web-img');
         if (img) img.onchange = async () => {
           if (!img.files[0]) return;
