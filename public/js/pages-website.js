@@ -81,7 +81,7 @@ const WEB_TABS = {
     label: '服務項目',
     cols: ['名稱', '工種', '說明', '價格說明', '排序', '狀態'],
     row: r => [
-      `<strong>${UI.esc(r.icon || '')} ${UI.esc(r.name)}</strong>`,
+      `<strong>${UI.esc(r.name)}</strong>`,
       UI.esc(TW.trade[r.trade] || r.trade),
       `<span class="wrap">${UI.esc(r.summary || '')}</span>`,
       UI.esc(r.price_hint || '－'), r.sort, ''
@@ -89,7 +89,6 @@ const WEB_TABS = {
     form: r => `
       ${UI.input('name', '服務名稱', { value: r?.name, required: true, full: true, placeholder: '例：漏水抓漏與管路修繕' })}
       ${UI.select('trade', '工種', App.mapOpts(TW.trade), { value: r?.trade || 'water' })}
-      ${UI.input('icon', '圖示 emoji', { value: r?.icon, placeholder: '🚿' })}
       ${UI.input('summary', '一句話說明', { value: r?.summary, full: true, placeholder: '卡片上顯示的短句' })}
       ${UI.textarea('body', '詳細說明', { value: r?.body })}
       ${UI.input('price_hint', '價格說明', { value: r?.price_hint, full: true, placeholder: '例：到府檢測 500 元起，施工可折抵' })}
@@ -99,11 +98,10 @@ const WEB_TABS = {
   steps: {
     label: '服務流程',
     cols: ['步驟', '標題', '說明', '排序', '狀態'],
-    row: r => [r.step_no, `<strong>${UI.esc(r.icon || '')} ${UI.esc(r.title)}</strong>`,
+    row: r => [r.step_no, `<strong>${UI.esc(r.title)}</strong>`,
       `<span class="wrap">${UI.esc(r.body || '')}</span>`, r.sort, ''],
     form: r => `
       ${UI.input('step_no', '步驟編號', { type: 'number', value: r?.step_no || 1 })}
-      ${UI.input('icon', '圖示 emoji', { value: r?.icon, placeholder: '📞' })}
       ${UI.input('title', '步驟標題', { value: r?.title, required: true, full: true, placeholder: '例：來電或線上估價' })}
       ${UI.textarea('body', '說明', { value: r?.body })}
       ${UI.input('sort', '排序', { type: 'number', value: r?.sort || 0 })}`

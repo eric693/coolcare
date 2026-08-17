@@ -41,7 +41,7 @@
     $('hero-sub').textContent = t.hero_sub || '';
     $('hero-note').textContent = t.hero_note || '';
     $('hero-actions').innerHTML = [
-      c.phone ? `<a class="btn-primary" href="tel:${esc(c.phone)}">📞 立即來電 ${esc(c.phone)}</a>` : '',
+      c.phone ? `<a class="btn-primary" href="tel:${esc(c.phone)}">立即來電 ${esc(c.phone)}</a>` : '',
       `<a class="btn-ghost" href="#quote">線上估價</a>`,
       c.line_url ? `<a class="btn-line" href="${esc(c.line_url)}" target="_blank" rel="noopener">加 LINE 好友</a>` : ''
     ].join('');
@@ -70,7 +70,7 @@
       <article class="scard">
         ${s.photo ? `<img src="${esc(s.photo)}" alt="${esc(s.name)}" loading="lazy">` : ''}
         <div class="scard-body">
-          <h3>${s.icon ? esc(s.icon) + ' ' : ''}${esc(s.name)}</h3>
+          <h3>${esc(s.name)}</h3>
           ${s.summary ? `<p class="scard-sum">${esc(s.summary)}</p>` : ''}
           ${s.body ? `<div class="scard-detail">${para(s.body)}</div>` : ''}
           ${s.price_hint ? `<div class="scard-price">${esc(s.price_hint)}</div>` : ''}
@@ -81,7 +81,7 @@
     hide('process', !DATA.steps.length);
     $('steps-list').innerHTML = DATA.steps.map(s => `
       <li class="step">
-        <div class="step-no">${s.icon ? esc(s.icon) : esc(s.step_no)}</div>
+        <div class="step-no">${esc(s.step_no)}</div>
         <div><h3>${esc(s.title)}</h3>${s.body ? `<p>${esc(s.body)}</p>` : ''}</div>
       </li>`).join('');
 
@@ -177,7 +177,7 @@
     $('footer-copy').textContent = `© ${new Date().getFullYear()} ${c.name}`;
 
     $('float-bar').innerHTML = [
-      c.phone ? `<a href="tel:${esc(c.phone)}" class="fb fb-tel">📞 來電</a>` : '',
+      c.phone ? `<a href="tel:${esc(c.phone)}" class="fb fb-tel">來電</a>` : '',
       c.line_url ? `<a href="${esc(c.line_url)}" target="_blank" rel="noopener" class="fb fb-line">LINE</a>` : '',
       `<a href="#quote" class="fb fb-quote">線上估價</a>`
     ].join('');
