@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1268a8">
+<title>CoolCare 水電空調工程管理系統｜系統介紹</title>
+<meta name="description" content="針對台灣水電行與機電工程行設計的營運管理系統：派工維修、工程專案估驗計價與保留款、分包工班扣繳、進銷存、報價請款、報驗申報，並附公司官網與客戶專區。">
+<link rel="stylesheet" href="/css/site.css">
+<style>
+  /* 介紹頁專用：以官網樣式為底，補上文件型排版 */
+  .doc { width: min(920px, 92%); margin: 0 auto; }
+  .doc-hero { background: linear-gradient(160deg, #0d4d7d, #1268a8 60%, #2f92cf); color: #fff; padding: 64px 0 56px; }
+  .doc-hero h1 { font-size: clamp(26px, 4.6vw, 40px); margin-bottom: 12px; }
+  .doc-hero p { font-size: clamp(15px, 2.2vw, 18px); opacity: .94; margin: 0 0 8px; }
+  .doc-hero .tagline { font-size: 14px; opacity: .82; }
+
+  .doc section { padding: 52px 0; border-bottom: 1px solid var(--line); }
+  .doc section:last-child { border-bottom: 0; }
+  .doc h2 { font-size: clamp(20px, 3vw, 27px); margin-bottom: 6px; }
+  .doc h2 + .lead { color: var(--muted); margin: 0 0 26px; font-size: 15px; }
+  .doc h3 { font-size: 17px; margin: 26px 0 10px; color: var(--blue-dark); }
+  .doc p { margin: 0 0 12px; }
+  .doc ul { margin: 0 0 14px; padding-left: 1.3em; }
+  .doc li { margin-bottom: 7px; }
+
+  .entry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .entry {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; background: #fff;
+  }
+  .entry h3 { margin: 0 0 6px; }
+  .entry p { font-size: 14px; color: var(--muted); margin: 0; }
+
+  .mod-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+  .mod {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 22px; background: #fff; box-shadow: var(--shadow);
+  }
+  .mod h3 { margin: 0 0 10px; }
+  .mod ul { margin: 0; padding-left: 1.2em; font-size: 14.2px; }
+
+  .doc table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 14.2px; }
+  .doc th, .doc td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; vertical-align: top; }
+  .doc th { background: var(--blue-light); color: var(--blue-dark); font-weight: 600; white-space: nowrap; }
+  .table-scroll { overflow-x: auto; }
+
+  .callout {
+    background: var(--blue-light); border-left: 4px solid var(--blue);
+    border-radius: 8px; padding: 14px 18px; margin: 18px 0; font-size: 14.2px;
+  }
+  .callout strong { color: var(--blue-dark); }
+
+  .doc-foot { background: #16252f; color: #c8d4dc; padding: 32px 0; font-size: 14px; }
+  .doc-foot a { color: #9ec9e6; }
+</style>
+</head>
+<body>
+
+<div class="doc-hero">
+  <div class="doc">
+    <h1>CoolCare 水電空調工程管理系統</h1>
+    <p>從一通報修電話，到一件完整承攬工程的估驗計價與保留款，全部在同一套系統裡。</p>
+    <p class="tagline">依台灣水電承裝業實務設計　·　含公司官網與客戶專區</p>
+  </div>
+</div>
+
+<main class="doc">
+
+  <section>
+    <h2>這套系統解決什麼問題</h2>
+    <p class="lead">水電行的生意有兩種形態，多數管理系統只處理得了其中一種。</p>
+    <p>
+      一種是<strong>單次到府服務</strong>：客戶打電話來說漏水、跳電，派師傅出門、帶料、修好、收錢。
+      這部分靠派工單與進銷存就能管理。
+    </p>
+    <p>
+      另一種是<strong>承攬工程</strong>：一整戶水電更新、店面新建配管配線。
+      這種案子金額大、工期長，業主不會一次付清，而是分期估驗計價、每期扣留保留款，中途還會追加減帳；
+      工班可能發包出去，付款給個人工班還要辦理扣繳。
+    </p>
+    <p>
+      CoolCare 兩種都涵蓋，而且兩邊的成本是打通的——掛在工程底下的工單，
+      領料成本會自動累進該工程的毛利計算，不必另外做一份 Excel。
+    </p>
+  </section>
+
+  <section>
+    <h2>三個入口</h2>
+    <p class="lead">同一套系統，三種身分各看各的。</p>
+    <div class="entry-grid">
+      <div class="entry">
+        <h3>公司官網</h3>
+        <p>對外形象網站與線上估價。內容由後台維護，改完立即生效，不必找人改網頁。</p>
+      </div>
+      <div class="entry">
+        <h3>員工管理系統</h3>
+        <p>派工、工程、進銷存、帳務、報表。模組權限逐項勾選，技師看不到帳務。</p>
+      </div>
+      <div class="entry">
+        <h3>客戶專區</h3>
+        <p>客戶自助查維修進度、工程進度與估驗計價、設備清單與帳單，也能線上報修。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>功能總覽</h2>
+    <p class="lead">以下為系統實際具備的模組。</p>
+
+    <div class="mod-grid">
+      <div class="mod">
+        <h3>每日作業</h3>
+        <ul>
+          <li>總覽儀表板：待派工、今日到場、急件、逾期、未收款、待付工班、官網待處理詢價</li>
+          <li>派工看板：依技師分組安排當日行程</li>
+          <li>派工單：開單到完工結算的完整流程，含施工照片、保養檢查表、客戶手寫簽收</li>
+          <li>工單月曆、線上估價詢問處理</li>
+        </ul>
+      </div>
+
+      <div class="mod">
+        <h3>工程專案</h3>
+        <ul>
+          <li>承攬案的合約、工期、進度、履約與保固保證金</li>
+          <li>追加減帳：業主簽認後才併入合約金額</li>
+          <li>估驗計價：依完成度算本期金額、自動扣留保留款，可開請款單與列印簽認單</li>
+          <li>成本自動彙總（材料＋分包＋工資），即時毛利與預算餘額</li>
+        </ul>
+      </div>
+
+      <div class="mod">
+        <h3>分包工班</h3>
+        <ul>
+          <li>工班建檔：工種、證照、勞保與營造險、配合評等</li>
+          <li>發包單（總價包／單價計量／點工）與分期計價</li>
+          <li>材料扣回、缺失罰款、對工班的保留款</li>
+          <li>勞務扣繳與二代健保代扣，年度給付彙總供申報扣繳憑單</li>
+        </ul>
+      </div>
+
+      <div class="mod">
+        <h3>出工與單價</h3>
+        <ul>
+          <li>出工日報：大工／小工／點工計價，工數或工時、加班另計</li>
+          <li>雨天停工可留天氣佐證，工資成本自動歸屬工程</li>
+          <li>工項單價庫：工資與材料單價分列，含對客報價、內部成本、發包單價</li>
+          <li>整批調價，報價時直接勾選帶入</li>
+        </ul>
+      </div>
+
+      <div class="mod">
+        <h3>客戶與設備</h3>
+        <ul>
+          <li>客戶、多個服務地點（樓層／門禁／停車／施工注意）</li>
+          <li>設備履歷：冷氣、熱水器、加壓馬達、水塔、配電盤、電錶等</li>
+          <li>記錄管材口徑、線徑、開關規格、電號水號、冷媒種類與充填量</li>
+          <li>保養合約：週期排程，到期可一鍵產生保養工單</li>
+        </ul>
+      </div>
+
+      <div class="mod">
+        <h3>進銷存</h3>
+        <ul>
+          <li>料件主檔（多價別、安全庫存、序號追蹤）</li>
+          <li>採購進貨、銷貨出庫、盤點、廠商管理</li>
+          <li>多倉別：公司倉／工程車／工地暫存</li>
+          <li>移動平均成本，出庫寫入成本快照，改價不影響歷史毛利</li>
+        </ul>
+      </div>
+
+      <div class="mod">
+        <h3>帳務</h3>
+        <ul>
+          <li>報價單、請款單（工單併單、估驗計價、手動開立）</li>
+          <li>收付款登記、應收帳齡分析、應付廠商</li>
+          <li>技師抽成計算與月結算</li>
+        </ul>
+      </div>
+
+      <div class="mod">
+        <h3>法規與證照</h3>
+        <ul>
+          <li>報驗申報：台電、自來水處、消防、建管的送件與會驗追蹤</li>
+          <li>定期申報可設週期，合格時自動推算下次應申報日</li>
+          <li>公司承裝業登記與換證提醒</li>
+          <li>冷媒充填回收紀錄，環保申報底稿</li>
+        </ul>
+      </div>
+
+      <div class="mod">
+        <h3>官網與管理</h3>
+        <ul>
+          <li>官網內容管理：服務項目、流程、實績相簿、商品、消息、常見問題</li>
+          <li>工程專案可一鍵轉官網實績，客戶名與地址自動去識別化</li>
+          <li>報表匯出 20 種，皆支援 CSV／Excel／PDF</li>
+          <li>公告、模組權限、系統設定、稽核軌跡</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>對應的台灣實務與法規</h2>
+    <p class="lead">系統設計時逐項對照過，相關參數皆可於系統設定調整，不寫死在程式裡。</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>項目</th><th>系統中的處理方式</th></tr></thead>
+        <tbody>
+          <tr><td>工程估驗計價與保留款</td>
+            <td>每期依完成比例計價並扣留保留款，比例可設定；驗收後另開期別請領退還</td></tr>
+          <tr><td>工程追加減帳</td>
+            <td>變更單須標記為業主已核准，才會併入合約金額並影響後續計價基準</td></tr>
+          <tr><td>所得稅法第 88 條扣繳</td>
+            <td>付給個人工班且單次給付達起扣點時自動代扣，稅率與起扣點可設定</td></tr>
+          <tr><td>二代健保補充保費</td>
+            <td>達計收門檻時自動計算，費率與門檻可設定；年度給付彙總可匯出</td></tr>
+          <tr><td>營業稅與統一發票</td>
+            <td>單據支援未稅另加／內含／免稅三種稅別，稅率可設定；請款單可登錄發票號碼</td></tr>
+          <tr><td>台電竣工報驗、用電設備檢驗維護申報</td>
+            <td>報驗案件追蹤送件、會驗、不合格複驗；定期申報自動推算下次期限</td></tr>
+          <tr><td>自來水配管報驗、消防查驗</td>
+            <td>同上，受理機關與類別可自行增修</td></tr>
+          <tr><td>電器承裝業、自來水管承裝商登記</td>
+            <td>登記證號與專任技術員建檔，換證期限提前提醒；過期時官網停止顯示該項資格</td></tr>
+          <tr><td>消保法定型化契約保固</td>
+            <td>工程與設備各有保固期限與到期提醒，月數可設定</td></tr>
+          <tr><td>冷媒管理（F-gas 申報）</td>
+            <td>充填、回收、洩漏、銷毀逐筆留存，含鋼瓶編號與施作技師</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <strong>關於稅務試算：</strong>扣繳稅率、起扣點與補充保費費率逐年調整，系統一律以可設定的參數處理，
+      並隨版本附上當期預設值。實際申報請以國稅局與健保署當年度公告為準，系統的試算僅供作業參考。
+    </div>
+  </section>
+
+  <section>
+    <h2>技術規格</h2>
+    <div class="table-scroll">
+      <table>
+        <tbody>
+          <tr><th>後端</th><td>Node.js + Express，JWT Cookie 驗證（員工與客戶身分分離）</td></tr>
+          <tr><th>資料庫</th><td>SQLite，零設定、單一檔案，備份與搬移只需複製檔案</td></tr>
+          <tr><th>前端</th><td>原生 JavaScript，無框架、無編譯步驟；手機與桌機皆可操作</td></tr>
+          <tr><th>報表</th><td>內建 Excel 產生器；PDF 走瀏覽器列印，不依賴額外服務</td></tr>
+          <tr><th>資料保全</th><td>每日自動備份並保留多份，另鏡像一份至專案目錄外</td></tr>
+          <tr><th>安全性</th><td>登入連續失敗鎖定、未登入端點 IP 限流、模組級權限、完整稽核軌跡</td></tr>
+          <tr><th>外部相依</th><td>無。不使用外部 CDN、字型或分析服務，可完全離線內網部署</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>設計上的幾個取捨</h2>
+
+    <h3>追加減帳一定要簽認才算數</h3>
+    <p>
+      未簽認就施工、事後追不到錢，是水電行最常見的虧損來源。
+      系統刻意把「業主簽認」做成必經欄位，未核准的變更不會影響合約金額，
+      讓這件事在流程上被強制看見。
+    </p>
+
+    <h3>成本只認實際發生</h3>
+    <p>
+      工程毛利以實際領料成本、分包已計價金額與出工工資計算，不用預估值美化。
+      已發包但尚未計價的金額另外列出——那是還沒發生但躲不掉的成本。
+    </p>
+
+    <h3>客戶看得到進度，看不到成本</h3>
+    <p>
+      客戶專區的工程頁面逐欄挑選要呈現的內容：進度、估驗計價、保留款、追加減帳都看得到，
+      但預算、分包對象與分包金額一律不外流。「待付款」也只計算已開立帳單的部分，
+      不讓業主誤以為已估驗的金額當下就要付。
+    </p>
+
+    <h3>參數不寫死</h3>
+    <p>
+      稅率、扣繳率、保留款比例、保固月數、各種到期提醒天數、選項清單，
+      全部放在系統設定裡。法規調整或公司政策改變時，不需要改程式。
+    </p>
+  </section>
+
+</main>
+
+<footer class="doc-foot">
+  <div class="doc">
+    <p>CoolCare 水電空調工程管理系統　·　系統介紹</p>
+    <p><a href="/">回到公司官網</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
