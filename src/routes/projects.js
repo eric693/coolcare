@@ -194,6 +194,11 @@ router.delete('/projects/:id', requireStaff('projects'), (req, res) => {
   if (!p) return res.status(404).json({ error: '工程專案不存在' });
   const billed = db.prepare("SELECT COUNT(*) n FROM project_billings WHERE project_id = ? AND status != 'draft'").get(p.id).n;
   if (billed) return res.status(400).json({ error: '已有估驗計價紀錄，不可刪除；請改為取消結案' });
+  // 工單與發包單都會外鍵參照工程，直接刪會被資料庫擋下並回 500，先給出看得懂的訊息
+  const orders = db.prepare('SELECT COUNT(*) n FROM work_orders WHERE project_id = ?').get(p.id).n;
+  if (orders) return res.status(400).json({ error: `此工程底下有 ${orders} 張工單，請先解除工單的工程歸屬` });
+  const subs = db.prepare('SELECT COUNT(*) n FROM subcontracts WHERE project_id = ?').get(p.id).n;
+  if (subs) return res.status(400).json({ error: `此工程底下有 ${subs} 張發包單，請先處理` });
   db.prepare('DELETE FROM projects WHERE id = ?').run(p.id);
   audit('staff', req.user.id, req.user.name, '刪除工程專案', p.proj_no);
   res.json({ ok: true });
